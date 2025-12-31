@@ -88,3 +88,51 @@ registrationDateImportantTooltipLabel: FlatLabel(defaultImportantTooltipLabel) {
 		font: font(12px);
 	}
 }
+
+/* ============================================
+ * AyuGram iOS/Web Visual Enhancements
+ * ============================================ */
+
+/* Chat bubble customization */
+ayuBubbleRadiusDefault: 21px;
+ayuBubbleRadiusSmall: 12px;
+ayuBubbleRadiusLarge: 24px;
+
+/* Message spacing - iOS style */
+ayuMessageSpacingCompact: margins(10px, 6px, 10px, 6px);
+ayuMessageSpacingNormal: margins(12px, 10px, 12px, 10px);
+ayuMessageSpacingComfortable: margins(14px, 12px, 14px, 12px);
+
+/* Chat list row heights */
+ayuDialogRowCompact: 62px;
+ayuDialogRowNormal: 72px;
+ayuDialogRowComfortable: 80px;
+
+/* Avatar sizes for chat list */
+ayuAvatarSmall: 42px;
+ayuAvatarNormal: 52px;
+ayuAvatarLarge: 58px;
+
+/* Online indicator */
+ayuOnlineBadgeSmall: 10px;
+ayuOnlineBadgeNormal: 14px;
+ayuOnlineBadgeLarge: 16px;
+
+/* Animation durations - smoother transitions */
+ayuTransitionFast: 120;
+ayuTransitionNormal: 200;
+ayuTransitionSlow: 350;
+
+/* Shadows */
+ayuShadowLight: 2px;
+ayuShadowNormal: 3px;
+ayuShadowStrong: 5px;
+
+/* Input field styling */
+ayuInputBorderRadius: 22px;
+ayuInputPadding: margins(16px, 12px, 16px, 12px);
+
+/* Floating action button */
+ayuFabSize: 56px;
+ayuFabIconSize: 24px;
+ayuFabShadow: 8px;

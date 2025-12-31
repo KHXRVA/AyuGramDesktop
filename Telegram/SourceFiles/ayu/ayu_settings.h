@@ -149,6 +149,14 @@ public:
 	bool adaptiveCoverColor;
 
 	bool crashReporting;
+
+	// Visual customization - iOS/Web style
+	int bubbleStyle; // 0=default, 1=iOS (rounded), 2=compact
+	int chatListStyle; // 0=default, 1=iOS (tall rows), 2=compact
+	int animationSpeed; // 0=normal, 1=fast, 2=slow, 3=disabled
+	bool smoothAnimations;
+	bool largerAvatars;
+	bool enhancedShadows;
 };
 
 void set_sendReadMessages(bool val);
@@ -257,6 +265,14 @@ void set_adaptiveCoverColor(bool val);
 
 void set_crashReporting(bool val);
 
+// Visual customization setters
+void set_bubbleStyle(int val);
+void set_chatListStyle(int val);
+void set_animationSpeed(int val);
+void set_smoothAnimations(bool val);
+void set_largerAvatars(bool val);
+void set_enhancedShadows(bool val);
+
 inline void to_json(nlohmann::json &nlohmann_json_j, const AyuGramSettings &nlohmann_json_t) {
 	NLOHMANN_JSON_TO(sendReadMessages)
 	NLOHMANN_JSON_TO(sendReadStories)
@@ -339,6 +355,12 @@ inline void to_json(nlohmann::json &nlohmann_json_j, const AyuGramSettings &nloh
 	NLOHMANN_JSON_TO(translationProvider)
 	NLOHMANN_JSON_TO(adaptiveCoverColor)
 	NLOHMANN_JSON_TO(crashReporting)
+	NLOHMANN_JSON_TO(bubbleStyle)
+	NLOHMANN_JSON_TO(chatListStyle)
+	NLOHMANN_JSON_TO(animationSpeed)
+	NLOHMANN_JSON_TO(smoothAnimations)
+	NLOHMANN_JSON_TO(largerAvatars)
+	NLOHMANN_JSON_TO(enhancedShadows)
 }
 
 inline void from_json(const nlohmann::json &nlohmann_json_j, AyuGramSettings &nlohmann_json_t) {
@@ -424,6 +446,12 @@ inline void from_json(const nlohmann::json &nlohmann_json_j, AyuGramSettings &nl
 	NLOHMANN_JSON_FROM_WITH_DEFAULT(translationProvider)
 	NLOHMANN_JSON_FROM_WITH_DEFAULT(adaptiveCoverColor)
 	NLOHMANN_JSON_FROM_WITH_DEFAULT(crashReporting)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(bubbleStyle)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(chatListStyle)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(animationSpeed)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(smoothAnimations)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(largerAvatars)
+	NLOHMANN_JSON_FROM_WITH_DEFAULT(enhancedShadows)
 }
 
 AyuGramSettings &getInstance();

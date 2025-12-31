@@ -86,14 +86,14 @@ dialogsTextStyle: defaultTextStyle;
 dialogsDateFont: font(13px);
 dialogsDateSkip: 5px;
 
-dialogsRowHeight: 62px;
+dialogsRowHeight: 72px; // iOS-style: taller rows for better touch targets
 dialogsFilterPadding: point(7px, 7px);
 dialogsFilterSkip: 4px;
 
 defaultDialogRow: DialogRow {
 	height: dialogsRowHeight;
 	padding: margins(10px, 8px, 10px, 8px);
-	photoSize: 46px;
+	photoSize: 52px; // iOS-style: larger avatars
 	nameLeft: 68px;
 	nameTop: 10px;
 	textLeft: 68px;
@@ -143,7 +143,7 @@ forumDialogJumpPadding: margins(8px, 3px, 8px, 3px);
 forumDialogJumpRadius: 11px;
 
 dialogsOnlineBadgeStroke: 3px;
-dialogsOnlineBadgeSize: 12px;
+dialogsOnlineBadgeSize: 14px; // iOS-style: more visible online indicator
 dialogsOnlineBadgeSkip: point(0px, 0px);
 dialogsOnlineBadgeDuration: 150;
 

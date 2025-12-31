@@ -337,6 +337,14 @@ AyuGramSettings::AyuGramSettings() {
 	adaptiveCoverColor = true;
 
 	crashReporting = true;
+
+	// ~ Visual customization (iOS/Web style)
+	bubbleStyle = 1; // default to iOS style
+	chatListStyle = 1; // default to iOS style
+	animationSpeed = 0; // normal
+	smoothAnimations = true;
+	largerAvatars = true;
+	enhancedShadows = true;
 }
 
 void set_sendReadMessages(bool val) {
@@ -687,6 +695,34 @@ void set_adaptiveCoverColor(bool val) {
 }
 
 void set_crashReporting(bool val) {
+	settings->crashReporting = val;
+}
+
+// Visual customization setters
+void set_bubbleStyle(int val) {
+	settings->bubbleStyle = val;
+}
+
+void set_chatListStyle(int val) {
+	settings->chatListStyle = val;
+}
+
+void set_animationSpeed(int val) {
+	settings->animationSpeed = val;
+}
+
+void set_smoothAnimations(bool val) {
+	settings->smoothAnimations = val;
+}
+
+void set_largerAvatars(bool val) {
+	settings->largerAvatars = val;
+}
+
+void set_enhancedShadows(bool val) {
+	settings->enhancedShadows = val;
+}
+
 	settings->crashReporting = val;
 }
 

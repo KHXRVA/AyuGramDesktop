@@ -22,10 +22,10 @@ msgDateFont: font(13px);
 msgMinWidth: 160px;
 msgPhotoSize: 33px;
 msgPhotoSkip: 40px;
-msgPadding: margins(11px, 8px, 11px, 8px);
+msgPadding: margins(12px, 10px, 12px, 10px); // iOS-style: increased padding
 msgMargin: margins(16px, 6px, 56px, 2px);
 msgMarginTopAttached: 0px;
-msgShadow: 2px;
+msgShadow: 3px; // iOS-style: softer shadow
 msgSelectionOffset: 30px;
 msgSelectionBottomSkip: 5px;
 
@@ -395,9 +395,9 @@ historyInfoToast: Toast(defaultToast) {
 }
 
 bubbleRadiusSmall: roundRadiusLarge;
-bubbleRadiusLarge: 16px;
+bubbleRadiusLarge: 21px; // iOS-style: smoother bubble corners
 
-historyPhotoLeft: 14px;
+historyPhotoLeft: 10px; // iOS-style: reduced padding
 historyPhotoBubbleMinWidth: 200px;
 historyBubbleTailInLeft: icon {{ "bubble_tail", msgInBg }};
 historyBubbleTailInLeftSelected: icon {{ "bubble_tail", msgInBgSelected }};
