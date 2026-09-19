@@ -392,7 +392,7 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"AyuGram Desktop"_q,
+		AyuSettings::getInstance().effectiveAppName() + u" Desktop"_q,
 		u"https://ayugram.one"_q));
 	_telegram->setLinksTrusted();
 	// The canary version is too long for the "Version {version}" form.

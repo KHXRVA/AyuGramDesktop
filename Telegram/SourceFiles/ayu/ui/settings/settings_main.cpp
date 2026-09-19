@@ -69,9 +69,12 @@ void BuildVersionInfo(SectionBuilder &builder) {
 		return {
 			.widget = object_ptr<Ui::FlatLabel>(
 				ctx.container,
-				rpl::single(
-					QString("AyuGram Desktop v")
-					+ QString::fromLatin1(AppVersionStr)),
+				AyuSettings::getInstance().customAppNameValue(
+				) | rpl::map([](const QString &) {
+					return AyuSettings::getInstance().effectiveAppName()
+						+ QString(" Desktop v")
+						+ QString::fromLatin1(AppVersionStr);
+				}),
 				st::boxTitle),
 			.align = style::al_top,
 		};
@@ -101,7 +104,10 @@ void BuildCategories(SectionBuilder &builder) {
 	builder.addSubsectionTitle(tr::ayu_CategoriesHeader());
 
 	builder.addSectionButton({
-		.title = rpl::single(QString("AyuGram")),
+		.title = AyuSettings::getInstance().customAppNameValue(
+		) | rpl::map([](const QString &) {
+			return AyuSettings::getInstance().effectiveAppName();
+		}),
 		.targetSection = AyuGhost::Id(),
 		.icon = { &st::menuIconGroupReactions },
 	});

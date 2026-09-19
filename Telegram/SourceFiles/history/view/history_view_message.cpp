@@ -2613,7 +2613,11 @@ void Message::paintFromName(
 			? (availableWidth - statusWidth)
 			: availableWidth) - viaSkipWidth,
 		0);
-	if (statusWidth && availableWidth > statusWidth) {
+	// AyuGram+: the emoji status next to a blurred name would give the
+	// sender away, skip it while blurring names in a shot.
+	if (statusWidth
+		&& availableWidth > statusWidth
+		&& !AyuFeatures::MessageShot::ShouldBlurNames()) {
 		const auto x = availableLeft
 			+ std::min(nameAvailableWidth, nameText->maxWidth());
 		const auto y = trect.top();
