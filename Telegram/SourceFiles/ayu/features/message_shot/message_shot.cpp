@@ -233,16 +233,15 @@ QImage BlurImage(QImage image, int radius) {
 	return Images::BlurLargeImage(std::move(image), radius);
 }
 
-void PaintBlurred(
+void PaintBlurredBlock(
 		QPainter &p,
 		const QRect &rect,
-		Fn<void(QPainter&)> paint) {
+		const QColor &color) {
 	if (rect.isEmpty()) {
 		return;
 	}
 	const auto ratio = style::DevicePixelRatio();
-	// Some extra room so the blur does not get clipped at the edges.
-	const auto extra = st::msgNameFont->height;
+	const auto extra = 6; // room for the soft edge
 	auto image = QImage(
 		(rect.width() + extra * 2) * ratio,
 		(rect.height() + extra * 2) * ratio,
@@ -250,29 +249,19 @@ void PaintBlurred(
 	image.setDevicePixelRatio(ratio);
 	image.fill(Qt::transparent);
 	{
-		// Paint the text a few times with small offsets so the glyphs
-		// become a dense shape, otherwise thin strokes fade to nothing.
 		auto q = QPainter(&image);
-		for (const auto &offset : {
-				QPoint(0, 0), QPoint(1, 0), QPoint(0, 1), QPoint(1, 1) }) {
-			q.resetTransform();
-			q.translate(extra + offset.x(), extra + offset.y());
-			paint(q);
-		}
+		auto hq = PainterHighQualityEnabler(q);
+		q.setPen(Qt::NoPen);
+		auto fill = color;
+		fill.setAlphaF(0.9);
+		q.setBrush(fill);
+		const auto radius = rect.height() / 3.;
+		q.drawRoundedRect(
+			QRectF(extra - 1, extra, rect.width() + 2, rect.height()),
+			radius,
+			radius);
 	}
-	// A real low-pass: shrink with smooth filtering, then scale back up
-	// with smooth filtering. This gives an even cloud in the name color
-	// instead of the streaks a box blur leaves on thin text.
-	const auto full = image.size();
-	const auto factor = std::max(int(st::msgNameFont->height * ratio / 3), 3);
-	const auto small = QSize(
-		std::max(full.width() / factor, 2),
-		std::max(full.height() / factor, 2));
-	image = image
-		.scaled(small, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
-		.scaled(full, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-	image.setDevicePixelRatio(ratio);
-	image = BlurImage(std::move(image), st::msgNameFont->height * ratio / 2);
+	image = BlurImage(std::move(image), 3 * ratio);
 	image.setDevicePixelRatio(ratio);
 	p.drawImage(rect.topLeft() - QPoint(extra, extra), image);
 }

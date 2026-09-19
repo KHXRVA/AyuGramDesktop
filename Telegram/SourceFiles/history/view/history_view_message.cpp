@@ -2675,19 +2675,11 @@ void Message::paintFromName(
 		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
 		trect.topLeft());
 	if (AyuFeatures::MessageShot::ShouldBlurNames()) {
-		// AyuGram+: blurred sender name in message shots
-		AyuFeatures::MessageShot::PaintBlurred(
+		// AyuGram+: a soft block instead of the sender name in shots
+		AyuFeatures::MessageShot::PaintBlurredBlock(
 			p,
 			QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
-			[&](QPainter &q) {
-				q.setFont(st::msgNameFont);
-				q.setPen(nameFg);
-				nameText->draw(q, {
-					.position = { 0, 0 },
-					.availableWidth = nameAvailableWidth,
-					.elisionLines = 1,
-				});
-			});
+			QPen(nameFg).color());
 	} else {
 		nameText->draw(p, {
 			.position = { availableLeft, trect.top() },

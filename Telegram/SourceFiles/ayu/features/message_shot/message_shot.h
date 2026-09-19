@@ -46,10 +46,12 @@ QColor makeDefaultBackgroundColor();
 // AyuGram+: message shot helpers used by the history painters.
 [[nodiscard]] QString DisplayNameFor(not_null<PeerData*> peer);
 [[nodiscard]] bool ShouldBlurNames();
-void PaintBlurred(
+// Paints a soft rounded block of the given color over `rect`
+// (used instead of the sender name when names are blurred).
+void PaintBlurredBlock(
 	QPainter &p,
 	const QRect &rect,
-	Fn<void(QPainter&)> paint);
+	const QColor &color);
 [[nodiscard]] QImage BlurImage(QImage image, int radius);
 
 // Gradient presets for the shot background (0 - use theme color).
