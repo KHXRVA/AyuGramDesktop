@@ -194,12 +194,13 @@ void Strip::paintOne(
 					Data::CustomEmojiSizeTag::Large,
 					_finalSize);
 			}
-			const auto size = int(std::floor(target.width() + 0.01));
+			const auto center = target.center().toPoint();
 			icon.custom->paint(p, {
 				.textColor = _st.textFg->c,
-				.size = QSize(size, size),
+				.size = QSize(_finalSize, _finalSize),
 				.now = crl::now(),
-				.position = target.topLeft().toPoint(),
+				.scale = target.width() / float64(_finalSize),
+				.position = center - QPoint(_finalSize / 2, _finalSize / 2),
 				.paused = false,
 				.scaled = true,
 			});

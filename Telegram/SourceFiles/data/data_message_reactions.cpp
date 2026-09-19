@@ -360,14 +360,6 @@ PossibleItemReactionsRef LookupPossibleReactions(
 				for (const auto &id : emojiIds | ranges::views::reverse) {
 					pushFront(id);
 				}
-				if (emojiIds.empty() && !customIds.empty() && result.recent.size() > 1) {
-					const auto first = ranges::find_if(result.recent, [](not_null<const Reaction*> r) {
-						return !r->id.custom() && !r->id.paid();
-					});
-					if (first != end(result.recent) && first != begin(result.recent)) {
-						std::rotate(begin(result.recent), first, first + 1);
-					}
-				}
 			}
 		}
 		if (paidInFront) {
