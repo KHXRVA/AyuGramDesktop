@@ -8,15 +8,23 @@
 
 #include "lang_auto.h"
 #include "chat_helpers/message_field.h"
+#include "chat_helpers/tabbed_panel.h"
+#include "chat_helpers/tabbed_selector.h"
+#include "data/data_user.h"
 #include "data/stickers/data_custom_emoji.h"
 #include "main/main_session.h"
 #include "styles/style_boxes.h"
+#include "styles/style_chat_helpers.h"
 #include "styles/style_widgets.h"
 #include "styles/style_layers.h"
+#include "styles/style_window.h"
 #include "ui/emoji_config.h"
 #include "ui/vertical_list.h"
+#include "ui/controls/emoji_button.h"
+#include "ui/controls/emoji_button_factory.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
+#include "window/window_session_controller.h"
 
 namespace AyuUi {
 namespace {
@@ -108,10 +116,11 @@ namespace {
 
 void PinnedReactionsBox(
 		not_null<Ui::GenericBox*> box,
-		not_null<Main::Session*> session,
+		not_null<Window::SessionController*> controller,
 		rpl::producer<QString> title,
 		std::vector<QString> current,
 		Fn<void(std::vector<QString>)> save) {
+	const auto session = &controller->session();
 	box->setTitle(std::move(title));
 	box->setWidth(st::boxWideWidth);
 
@@ -128,6 +137,42 @@ void PinnedReactionsBox(
 	});
 	field->setTextWithTags(EntriesToText(current));
 	field->setMaxLength(512);
+
+	// Emoji panel (regular + custom emoji) right in the box.
+	struct State {
+		base::unique_qptr<ChatHelpers::TabbedPanel> emojiPanel;
+	};
+	const auto state = box->lifetime().make_state<State>();
+	using Selector = ChatHelpers::TabbedSelector;
+	state->emojiPanel = base::make_unique_q<ChatHelpers::TabbedPanel>(
+		box->getDelegate()->outerContainer(),
+		controller,
+		object_ptr<Selector>(
+			nullptr,
+			controller->uiShow(),
+			Window::GifPauseReason::Layer,
+			Selector::Mode::EmojiOnly));
+	state->emojiPanel->setDesiredHeightValues(
+		1.,
+		st::emojiPanMinHeight / 2,
+		st::emojiPanMinHeight);
+	state->emojiPanel->hide();
+	state->emojiPanel->selector()->setCurrentPeer(session->user());
+	state->emojiPanel->selector()->emojiChosen(
+	) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
+		Ui::InsertEmojiAtCursor(field->textCursor(), data.emoji);
+	}, field->lifetime());
+	state->emojiPanel->selector()->customEmojiChosen(
+	) | rpl::on_next([=](ChatHelpers::FileChosen data) {
+		Data::InsertCustomEmoji(field, data.document);
+	}, field->lifetime());
+	const auto emojiButton = Ui::AddEmojiToggleToField(
+		field,
+		box,
+		controller,
+		state->emojiPanel.get(),
+		st::windowFilterNameEmojiPosition);
+	emojiButton->show();
 
 	Ui::AddSkip(box->verticalLayout());
 	box->addRow(

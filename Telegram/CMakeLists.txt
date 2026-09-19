@@ -255,6 +255,8 @@ set(ayugram_files
         ayu/data/deleted_media.h
         ayu/data/deleted_injector.cpp
         ayu/data/deleted_injector.h
+        ayu/ayu_lang_local.cpp
+        ayu/ayu_lang_local.h
         ayu/data/entities.h
         ayu/data/ayu_database.cpp
         ayu/data/ayu_database.h

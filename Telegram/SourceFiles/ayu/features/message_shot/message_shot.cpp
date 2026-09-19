@@ -250,18 +250,30 @@ void PaintBlurred(
 	image.setDevicePixelRatio(ratio);
 	image.fill(Qt::transparent);
 	{
-		// Paint the text several times with small offsets so the glyphs
-		// become a dense blob, otherwise thin strokes blur into nothing.
+		// Paint the text a few times with small offsets so the glyphs
+		// become a dense shape, otherwise thin strokes fade to nothing.
 		auto q = QPainter(&image);
 		for (const auto &offset : {
-				QPoint(0, 0), QPoint(1, 0), QPoint(0, 1), QPoint(1, 1),
-				QPoint(2, 0), QPoint(0, 2), QPoint(2, 1), QPoint(1, 2) }) {
+				QPoint(0, 0), QPoint(1, 0), QPoint(0, 1), QPoint(1, 1) }) {
 			q.resetTransform();
 			q.translate(extra + offset.x(), extra + offset.y());
 			paint(q);
 		}
 	}
-	image = BlurImage(std::move(image), st::msgNameFont->height * ratio);
+	// A real low-pass: shrink with smooth filtering, then scale back up
+	// with smooth filtering. This gives an even cloud in the name color
+	// instead of the streaks a box blur leaves on thin text.
+	const auto full = image.size();
+	const auto factor = std::max(int(st::msgNameFont->height * ratio / 3), 3);
+	const auto small = QSize(
+		std::max(full.width() / factor, 2),
+		std::max(full.height() / factor, 2));
+	image = image
+		.scaled(small, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+		.scaled(full, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+	image.setDevicePixelRatio(ratio);
+	image = BlurImage(std::move(image), st::msgNameFont->height * ratio / 2);
+	image.setDevicePixelRatio(ratio);
 	p.drawImage(rect.topLeft() - QPoint(extra, extra), image);
 }
 

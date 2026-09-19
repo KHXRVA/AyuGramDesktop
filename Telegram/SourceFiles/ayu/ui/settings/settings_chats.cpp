@@ -112,7 +112,7 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 				}
 				controller->show(Box(
 					AyuUi::PinnedReactionsBox,
-					&controller->session(),
+					controller,
 					tr::ayu_SettingsPinnedReactionsChatsList(),
 					AyuSettings::getInstance().pinnedReactionsChatsList(),
 					[](std::vector<QString> list) {
@@ -135,7 +135,7 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 				}
 				controller->show(Box(
 					AyuUi::PinnedReactionsBox,
-					&controller->session(),
+					controller,
 					tr::ayu_SettingsPinnedReactionsChannelsList(),
 					AyuSettings::getInstance().pinnedReactionsChannelsList(),
 					[](std::vector<QString> list) {

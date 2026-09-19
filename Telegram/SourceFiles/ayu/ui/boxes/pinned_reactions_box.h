@@ -8,9 +8,9 @@
 
 #include "ui/layers/generic_box.h"
 
-namespace Main {
-class Session;
-} // namespace Main
+namespace Window {
+class SessionController;
+} // namespace Window
 
 namespace AyuUi {
 
@@ -18,7 +18,7 @@ namespace AyuUi {
 // "custom:<document id>" for custom emoji.
 void PinnedReactionsBox(
 	not_null<Ui::GenericBox*> box,
-	not_null<Main::Session*> session,
+	not_null<Window::SessionController*> controller,
 	rpl::producer<QString> title,
 	std::vector<QString> current,
 	Fn<void(std::vector<QString>)> save);
