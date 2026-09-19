@@ -210,8 +210,6 @@ public:
 	-> const std::vector<not_null<Window::Controller*>> & {
 		return _windowStack;
 	}
-	void enumerateWindows(
-		Fn<void(not_null<Window::Controller*>)> callback) const;
 
 	// Media view interface.
 	bool hideMediaView();

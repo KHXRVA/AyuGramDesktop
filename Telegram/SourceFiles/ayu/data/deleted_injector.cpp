@@ -156,7 +156,7 @@ base::flat_set<FullMsgId> InjectedPending;
 			MTPDocument());
 	} else if (const auto document = restoreDocument(session, message)) {
 		using Flag = MTPDmessageMediaDocument::Flag;
-		auto flags = Flag::f_document;
+		auto flags = MTPDmessageMediaDocument::Flags(Flag::f_document);
 		if (document->isVoiceMessage()) {
 			flags |= Flag::f_voice;
 		} else if (document->isVideoMessage()) {
@@ -190,6 +190,7 @@ base::flat_set<FullMsgId> InjectedPending;
 		not_null<History*> history,
 		const AyuMessageBase &message) {
 	using Flag = MTPDmessage::Flag;
+	using Flags = MTPDmessage::Flags;
 	const auto from = ResolveFrom(history, message);
 	const auto self = history->session().userPeerId();
 	const auto entities = message.textEntities.empty()
@@ -198,7 +199,7 @@ base::flat_set<FullMsgId> InjectedPending;
 	const auto media = MediaFor(history, message);
 	const auto post = history->peer->isBroadcast();
 
-	auto flags = Flag(0);
+	auto flags = Flags(0);
 	if (from && !post) {
 		flags |= Flag::f_from_id;
 	}

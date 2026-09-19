@@ -762,6 +762,17 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 					.confirmStyle = &st::attentionBoxButton,
 				}));
 			});
+		}, [&](const SearchContext &sctx) {
+			sctx.entries->push_back({
+				.id = u"ayu/deletedExcludedDialogs"_q,
+				.title = tr::ayu_SettingsDeletedExclusions(tr::now),
+				.section = sctx.sectionId,
+			});
+			sctx.entries->push_back({
+				.id = u"ayu/clearDeletedInChannels"_q,
+				.title = tr::ayu_ClearDeletedInChannels(tr::now),
+				.section = sctx.sectionId,
+			});
 		});
 	});
 }

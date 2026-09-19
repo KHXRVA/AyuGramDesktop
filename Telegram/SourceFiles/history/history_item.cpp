@@ -548,7 +548,18 @@ HistoryItem::HistoryItem(
 		createComponents(data);
 		if (media) {
 			setMedia(*media);
-			if (checked == MediaCheckResult::HasUnsupportedTimeToLive) {
+			// AyuGram: upstream dropped MediaCheckResult::HasUnsupportedTimeToLive,
+			// detect self-destructing media directly.
+			const auto ayuTtlSeconds = media->match(
+				[](const MTPDmessageMediaPhoto &data) {
+					return data.vttl_seconds().value_or_empty();
+				},
+				[](const MTPDmessageMediaDocument &data) {
+					return data.vttl_seconds().value_or_empty();
+				},
+				[](const auto &) { return 0; });
+			if (ayuTtlSeconds > 0
+				&& checked != MediaCheckResult::HasExpiredMediaTimeToLive) {
 				media->match(
 					[&](const MTPDmessageMediaPhoto &media)
 					{

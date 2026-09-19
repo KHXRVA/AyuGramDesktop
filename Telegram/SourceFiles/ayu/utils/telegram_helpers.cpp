@@ -729,7 +729,7 @@ bool isMessageSavable(const not_null<HistoryItem*> item) {
 			return false;
 		}
 		if (channel->isMegagroup()
-			&& channel->linkedChat()
+			&& channel->discussionLink()
 			&& !settings.saveDeletedInComments()) {
 			return false;
 		}
