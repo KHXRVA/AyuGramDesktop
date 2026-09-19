@@ -189,6 +189,13 @@ void Strip::paintOne(
 			icon.appearAnimated = true;
 			appear->animate(_update);
 		}
+		if (appear
+			&& icon.appearAnimated
+			&& icon.id.custom()
+			&& !appear->animating()
+			&& !(icon.select && icon.select->animating())) {
+			appear->animate(_update);
+		}
 		if (appear && appear->animating()) {
 			paintFrame(appear);
 		} else if (const auto select = icon.select.get()) {
