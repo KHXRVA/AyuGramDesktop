@@ -300,7 +300,7 @@ void BuildDrawerElements(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 			.title = tr::ayu_SettingsHideWalletInDrawer(),
 			.getter = &AyuSettings::hideWalletInDrawer,
 			.setter = &AyuSettings::setHideWalletInDrawer,
-			.icon = { &st::menuIconPayment },
+			.icon = { &st::menuIconEarn },
 		});
 	}
 

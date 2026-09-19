@@ -45,7 +45,6 @@
 #include "ui/boxes/confirm_box.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/popup_menu.h"
-#include "ui/widgets/menu/menu_toggle.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
@@ -438,28 +437,19 @@ void AddAyuGramActions(PeerData *peerData,
 					&st::menuIconArchive);
 				if (showFilters || filteredToggleShown.value_or(false)) addAction({ .isSeparator = true });
 				const auto dialogId = getDialogIdFromPeer(peerData);
-				addAction({
-					.text = tr::ayu_ContextIncludeDeleted(tr::now),
-					.make = [=](not_null<Ui::PopupMenu*> popup) -> base::unique_qptr<Ui::Menu::ItemBase> {
-						const auto excluded = AyuSettings::getInstance().isDeletedSavingExcluded(dialogId);
-						auto item = base::make_unique_q<Ui::Menu::Toggle>(
-							popup->menu(),
-							popup->st().menu,
-							tr::ayu_ContextIncludeDeleted(tr::now),
-							[=] {
-								if (AyuSettings::getInstance().isDeletedSavingExcluded(dialogId)) {
-									AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
-								} else {
-									AyuSettings::getInstance().addDeletedExcludedDialog(dialogId);
-								}
-							},
-							&st::menuIconArchive,
-							&st::menuIconArchive);
-						item->action()->setCheckable(true);
-						item->action()->setChecked(!excluded);
-						return item;
+				const auto excluded = AyuSettings::getInstance().isDeletedSavingExcluded(dialogId);
+				addAction(
+					excluded
+						? tr::ayu_ContextIncludeDeleted(tr::now)
+						: tr::ayu_ContextExcludeDeleted(tr::now),
+					[=] {
+						if (excluded) {
+							AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
+						} else {
+							AyuSettings::getInstance().addDeletedExcludedDialog(dialogId);
+						}
 					},
-				});
+					excluded ? &st::menuIconArchive : &st::menuIconCaptionHide);
 				addAction({
 					.text = tr::ayu_ClearDeletedMenuText(tr::now),
 					.handler = ClearDeletedMessagesHandler(sessionController, peerData, topicId),

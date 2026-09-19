@@ -45,10 +45,7 @@ QColor makeDefaultBackgroundColor();
 
 [[nodiscard]] QString DisplayNameFor(not_null<PeerData*> peer);
 [[nodiscard]] bool ShouldBlurNames();
-void PaintBlurredBlock(
-	QPainter &p,
-	const QRect &rect,
-	const QColor &color);
+void BlurPaintedRegion(QPainter &p, const QRect &rect);
 [[nodiscard]] QImage BlurImage(QImage image, int radius);
 
 [[nodiscard]] int GradientPresetsCount();

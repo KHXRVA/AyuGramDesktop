@@ -232,37 +232,34 @@ QImage BlurImage(QImage image, int radius) {
 	return Images::BlurLargeImage(std::move(image), radius);
 }
 
-void PaintBlurredBlock(
-		QPainter &p,
-		const QRect &rect,
-		const QColor &color) {
+void BlurPaintedRegion(QPainter &p, const QRect &rect) {
 	if (rect.isEmpty()) {
 		return;
 	}
-	const auto ratio = style::DevicePixelRatio();
-	const auto extra = 6;
-	auto image = QImage(
-		(rect.width() + extra * 2) * ratio,
-		(rect.height() + extra * 2) * ratio,
-		QImage::Format_ARGB32_Premultiplied);
-	image.setDevicePixelRatio(ratio);
-	image.fill(Qt::transparent);
-	{
-		auto q = QPainter(&image);
-		auto hq = PainterHighQualityEnabler(q);
-		q.setPen(Qt::NoPen);
-		auto fill = color;
-		fill.setAlphaF(0.9);
-		q.setBrush(fill);
-		const auto radius = rect.height() / 3.;
-		q.drawRoundedRect(
-			QRectF(extra - 1, extra, rect.width() + 2, rect.height()),
-			radius,
-			radius);
+	const auto device = p.device();
+	if (!device || device->devType() != QInternal::Image) {
+		return;
 	}
-	image = BlurImage(std::move(image), 3 * ratio);
-	image.setDevicePixelRatio(ratio);
-	p.drawImage(rect.topLeft() - QPoint(extra, extra), image);
+	const auto image = static_cast<QImage*>(device);
+	const auto ratio = image->devicePixelRatio();
+	const auto pad = 2;
+	const auto padded = rect.marginsAdded(QMargins(pad, pad, pad, pad));
+	const auto deviceRect = p.combinedTransform()
+		.mapRect(QRectF(padded))
+		.toAlignedRect()
+		.intersected(image->rect());
+	if (deviceRect.isEmpty()) {
+		return;
+	}
+	auto part = image->copy(deviceRect);
+	part = BlurImage(std::move(part), int(st::msgNameFont->height * ratio / 2));
+	part.setDevicePixelRatio(ratio);
+	p.save();
+	p.resetTransform();
+	p.setOpacity(1.);
+	p.setCompositionMode(QPainter::CompositionMode_Source);
+	p.drawImage(QPointF(deviceRect.topLeft()) / ratio, part);
+	p.restore();
 }
 
 int GradientPresetsCount() {

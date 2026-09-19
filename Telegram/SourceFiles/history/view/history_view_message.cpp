@@ -2672,17 +2672,15 @@ void Message::paintFromName(
 		nameLinkHandler,
 		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
 		trect.topLeft());
+	nameText->draw(p, {
+		.position = { availableLeft, trect.top() },
+		.availableWidth = nameAvailableWidth,
+		.elisionLines = 1,
+	});
 	if (AyuFeatures::MessageShot::ShouldBlurNames()) {
-		AyuFeatures::MessageShot::PaintBlurredBlock(
+		AyuFeatures::MessageShot::BlurPaintedRegion(
 			p,
-			QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
-			QPen(nameFg).color());
-	} else {
-		nameText->draw(p, {
-			.position = { availableLeft, trect.top() },
-			.availableWidth = nameAvailableWidth,
-			.elisionLines = 1,
-		});
+			QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height));
 	}
 	const auto skipWidth = nameWidth
 		+ (_fromNameStatus && !hidePremiumStatuses
