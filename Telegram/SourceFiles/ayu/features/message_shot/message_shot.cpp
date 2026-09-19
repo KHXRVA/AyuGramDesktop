@@ -212,7 +212,7 @@ QString DisplayNameFor(not_null<PeerData*> peer) {
 		&& AyuSettings::getInstance().messageShotSettings().useUsernames()) {
 		const auto username = peer->username();
 		if (!username.isEmpty()) {
-			return QChar('@') + username;
+			return username;
 		}
 	}
 	return peer->name();
@@ -242,7 +242,7 @@ void PaintBlurred(
 	}
 	const auto ratio = style::DevicePixelRatio();
 	// Some extra room so the blur does not get clipped at the edges.
-	const auto extra = st::msgNameFont->height / 2;
+	const auto extra = st::msgNameFont->height;
 	auto image = QImage(
 		(rect.width() + extra * 2) * ratio,
 		(rect.height() + extra * 2) * ratio,
@@ -250,11 +250,18 @@ void PaintBlurred(
 	image.setDevicePixelRatio(ratio);
 	image.fill(Qt::transparent);
 	{
+		// Paint the text several times with small offsets so the glyphs
+		// become a dense blob, otherwise thin strokes blur into nothing.
 		auto q = QPainter(&image);
-		q.translate(extra, extra);
-		paint(q);
+		for (const auto &offset : {
+				QPoint(0, 0), QPoint(1, 0), QPoint(0, 1), QPoint(1, 1),
+				QPoint(2, 0), QPoint(0, 2), QPoint(2, 1), QPoint(1, 2) }) {
+			q.resetTransform();
+			q.translate(extra + offset.x(), extra + offset.y());
+			paint(q);
+		}
 	}
-	image = BlurImage(std::move(image), st::msgNameFont->height * ratio / 2);
+	image = BlurImage(std::move(image), st::msgNameFont->height * ratio);
 	p.drawImage(rect.topLeft() - QPoint(extra, extra), image);
 }
 
@@ -313,6 +320,26 @@ struct RenderedPart {
 	QImage image; // already trimmed
 	bool attachedToPrevious = false;
 };
+
+// Bounding rectangle of the non-transparent pixels, null if empty.
+[[nodiscard]] QRect ContentBounds(const QImage &image) {
+	auto minX = image.width();
+	auto minY = image.height();
+	auto maxX = -1;
+	auto maxY = -1;
+	for (auto y = 0; y != image.height(); ++y) {
+		const auto line = reinterpret_cast<const uint32*>(image.constScanLine(y));
+		for (auto x = 0; x != image.width(); ++x) {
+			if (line[x] >> 24) {
+				minX = std::min(minX, x);
+				maxX = std::max(maxX, x);
+				minY = std::min(minY, y);
+				maxY = std::max(maxY, y);
+			}
+		}
+	}
+	return (maxX < 0) ? QRect() : QRect(minX, minY, maxX - minX + 1, maxY - minY + 1);
+}
 
 [[nodiscard]] QColor CardColor() {
 	return Window::Theme::IsNightMode()
@@ -717,8 +744,13 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 		base::flat_map<not_null<PeerData*>, Ui::PeerUserpicView> userpics;
 
 		// draw every message into its own image
-		auto parts = std::vector<RenderedPart>();
-		parts.reserve(messages.size());
+		struct Drawn {
+			QImage image;
+			QRect bounds;
+			bool attachedToPrevious = false;
+		};
+		auto drawn = std::vector<Drawn>();
+		drawn.reserve(messages.size());
 		for (int i = 0; i < messages.size(); i++) {
 			const auto &message = messages[i];
 			const auto view = getView(message);
@@ -757,21 +789,44 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 				}
 			}
 
-			auto trimmed = removeEmptySpaceAround(image);
-			if (trimmed.isNull()) {
+			const auto bounds = ContentBounds(image);
+			if (bounds.isEmpty()) {
 				continue;
 			}
-			trimmed.setDevicePixelRatio(ratio);
-			parts.push_back({
-				.image = std::move(trimmed),
+			drawn.push_back({
+				.image = std::move(image),
+				.bounds = bounds,
 				.attachedToPrevious = (i > 0) && view->isAttachedToPrevious(),
 			});
 		}
 
 		takingShot = false;
 
-		if (parts.empty()) {
+		if (drawn.empty()) {
 			return;
+		}
+
+		// Crop every message by the common horizontal bounds so that
+		// messages with and without userpics stay aligned.
+		auto left = drawn.front().bounds.left();
+		auto right = drawn.front().bounds.right();
+		for (const auto &part : drawn) {
+			left = std::min(left, part.bounds.left());
+			right = std::max(right, part.bounds.right());
+		}
+		auto parts = std::vector<RenderedPart>();
+		parts.reserve(drawn.size());
+		for (auto &part : drawn) {
+			auto cropped = part.image.copy(QRect(
+				left,
+				part.bounds.top(),
+				right - left + 1,
+				part.bounds.height()));
+			cropped.setDevicePixelRatio(ratio);
+			parts.push_back({
+				.image = std::move(cropped),
+				.attachedToPrevious = part.attachedToPrevious,
+			});
 		}
 
 		auto result = (shotStyle == 1)

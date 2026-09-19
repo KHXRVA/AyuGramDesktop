@@ -17,7 +17,7 @@
 #include "profile/profile_back_button.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
-#include "styles/style_dialogs.h"
+#include "styles/style_ayu_styles.h"
 #include "styles/style_info.h"
 #include "ui/effects/animations.h"
 #include "ui/ui_utility.h"
@@ -115,7 +115,7 @@ FixedBar::FixedBar(
 , _field(this, st::defaultMultiSelectSearchField, tr::lng_dlg_filter())
 , _backButton(this)
 , _search(this, st::topBarSearch)
-, _calendar(this, st::dialogsCalendarTopBar)
+, _calendar(this, st::ayuTopBarCalendar)
 , _cancel(this, st::historyAdminLogCancelSearch)
 , _searchEnabled(searchEnabled) {
 	_backButton->moveToLeft(0, 0);
@@ -257,7 +257,7 @@ int FixedBar::resizeGetHeight(int newWidth) {
 		searchShown);
 	if (_searchEnabled) {
 		_search->moveToLeft(searchCurrentLeft, 0);
-		_calendar->moveToLeft(searchHiddenLeft - _calendar->width(), 0);
+		_calendar->moveToLeft(searchHiddenLeft - _calendar->width() + st::lineWidth, 0);
 		_calendar->setVisible(!_searchShown);
 	}
 	_backButton->setOpacity(1. - searchShown);
