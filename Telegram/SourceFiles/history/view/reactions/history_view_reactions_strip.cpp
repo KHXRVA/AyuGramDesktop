@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_session.h"
 #include "data/data_document.h"
 #include "data/data_document_media.h"
+#include "data/stickers/data_custom_emoji.h"
+#include "ui/text/custom_emoji_instance.h"
 #include "main/main_session.h"
 #include "ui/effects/frame_generator.h"
 #include "ui/animated_icon.h"
@@ -184,16 +186,28 @@ void Strip::paintOne(
 			p.drawImage(target, frame.image);
 		};
 
+		if (icon.id.custom() && icon.appearAnimation) {
+			if (!icon.custom) {
+				icon.custom = icon.appearAnimation->owner().customEmojiManager().create(
+					icon.appearAnimation,
+					_update,
+					Data::CustomEmojiSizeTag::Large,
+					_finalSize);
+			}
+			const auto size = int(std::floor(target.width() + 0.01));
+			icon.custom->paint(p, {
+				.textColor = _st.textFg->c,
+				.size = QSize(size, size),
+				.now = crl::now(),
+				.position = target.topLeft().toPoint(),
+				.paused = false,
+				.scaled = true,
+			});
+			return;
+		}
 		const auto appear = icon.appear.get();
 		if (appear && !icon.appearAnimated && allowAppearStart) {
 			icon.appearAnimated = true;
-			appear->animate(_update);
-		}
-		if (appear
-			&& icon.appearAnimated
-			&& icon.id.custom()
-			&& !appear->animating()
-			&& !(icon.select && icon.select->animating())) {
 			appear->animate(_update);
 		}
 		if (appear && appear->animating()) {

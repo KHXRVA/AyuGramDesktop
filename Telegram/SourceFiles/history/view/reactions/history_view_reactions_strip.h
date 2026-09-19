@@ -26,6 +26,10 @@ namespace Ui {
 class AnimatedIcon;
 } // namespace Ui
 
+namespace Ui::Text {
+class CustomEmoji;
+} // namespace Ui::Text
+
 namespace HistoryView::Reactions {
 
 struct ChosenReaction {
@@ -101,6 +105,7 @@ private:
 		DocumentData *selectAnimation = nullptr;
 		std::shared_ptr<Ui::AnimatedIcon> appear;
 		std::shared_ptr<Ui::AnimatedIcon> select;
+		std::unique_ptr<Ui::Text::CustomEmoji> custom;
 		mutable Ui::Animations::Simple selectedScale;
 		AddedButton added = AddedButton::None;
 		bool appearAnimated = false;
