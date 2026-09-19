@@ -433,7 +433,6 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 		Core::App().tray().updateIconCounters();
 	}, lifetime());
 
-	// AyuGram+: custom app name in the window title
 	AyuSettings::getInstance().customAppNameChanges(
 	) | rpl::on_next([=] {
 		updateTitle();

@@ -111,7 +111,9 @@ constexpr auto kPlayStatusLimit = 12;
 
 [[nodiscard]] rpl::producer<TextWithEntities> SetStatusLabel(
 		not_null<Main::Session*> session) {
-	return tr::ayu_AyuPreferences() | rpl::map([](const QString& text) {
+	return AyuSettings::getInstance().branded(
+		tr::ayu_AyuPreferences()
+	) | rpl::map([](const QString& text) {
 		return tr::link(text);
 	});
 }
@@ -392,7 +394,7 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		AyuSettings::getInstance().effectiveAppName() + u" Desktop"_q,
+		AyuSettings::getInstance().effectiveAppNameFull(),
 		u"https://ayugram.one"_q));
 	_telegram->setLinksTrusted();
 	// The canary version is too long for the "Version {version}" form.

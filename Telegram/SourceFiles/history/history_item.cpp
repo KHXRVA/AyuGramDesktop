@@ -548,8 +548,6 @@ HistoryItem::HistoryItem(
 		createComponents(data);
 		if (media) {
 			setMedia(*media);
-			// AyuGram: upstream dropped MediaCheckResult::HasUnsupportedTimeToLive,
-			// detect self-destructing media directly.
 			const auto ayuTtlSeconds = media->match(
 				[](const MTPDmessageMediaPhoto &data) {
 					return data.vttl_seconds().value_or_empty();

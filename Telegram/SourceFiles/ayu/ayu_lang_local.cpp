@@ -11,15 +11,12 @@
 namespace AyuLocalLang {
 namespace {
 
-// Translations for AyuGram+ keys that are not part of the cloud pack.
-// Applied on top of whatever the cloud pack provided, based on the
-// language the client is currently using.
 const std::vector<std::pair<const char*, const char*>> kRussian = {
 	{ "ayu_DeletedMediaUnavailable", "Медиа не было загружено до удаления" },
 	{ "ayu_SettingsDeletedSectionTitle", "Удалённые сообщения" },
 	{ "ayu_SettingsSaveDeletedInChannels", "Сохранять удалённые в каналах" },
 	{ "ayu_SettingsSaveDeletedInComments", "Сохранять удалённые в комментариях" },
-	{ "ayu_SettingsRestoreDeletedInChat", "Оставлять удалённые в чате после перезапуска" },
+	{ "ayu_SettingsRestoreDeletedInChat", "Удалённые в чате после перезапуска" },
 	{ "ayu_SettingsDeletedExclusions", "Исключённые чаты" },
 	{ "ayu_SettingsDeletedExclusionsHint", "В этих чатах удалённые сообщения не сохраняются. Добавить или убрать чат можно из меню чата." },
 	{ "ayu_SettingsDeletedExclusionsEmpty", "Нет исключённых чатов" },
@@ -95,7 +92,7 @@ const std::vector<std::pair<const char*, const char*>> kRussian = {
 	return matches(lang.id()) || matches(lang.baseId());
 }
 
-} // namespace
+}
 
 void Apply() {
 	if (!IsRussian()) {
@@ -109,4 +106,4 @@ void Apply() {
 	lang.updatePluralRules();
 }
 
-} // namespace AyuLocalLang
+}

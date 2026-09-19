@@ -121,7 +121,6 @@ FixedBar::FixedBar(
 	_backButton->moveToLeft(0, 0);
 	_backButton->setClickedCallback([=] { goBack(); });
 	_search->setClickedCallback([=] { showSearch(); });
-	// AyuGram+: jump to date in the deleted messages viewer
 	_calendar->setClickedCallback([=] {
 		const auto today = QDate::currentDate();
 		_controller->show(Box<Ui::CalendarBox>(Ui::CalendarBoxArgs{

@@ -45,6 +45,7 @@
 #include "ui/boxes/confirm_box.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/popup_menu.h"
+#include "ui/widgets/menu/menu_toggle.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "window/window_peer_menu.h"
 #include "window/window_session_controller.h"
@@ -222,7 +223,6 @@ void DeleteMyMessagesAfterConfirm(not_null<PeerData*> peer) {
 	(*requestNext)(MsgId(0));
 }
 
-// AyuGram+: remove all my reactions in a chat by walking its history.
 void RemoveMyReactionsAfterConfirm(not_null<PeerData*> peer) {
 	const auto session = &peer->session();
 	auto collected = std::make_shared<std::vector<MsgId>>();
@@ -280,11 +280,11 @@ void RemoveMyReactionsAfterConfirm(not_null<PeerData*> peer) {
 		session->api().request(MTPmessages_GetHistory(
 			peer->input(),
 			MTP_int(from.bare),
-			MTP_int(0), // offset_date
-			MTP_int(0), // add_offset
+			MTP_int(0),
+			MTP_int(0),
 			MTP_int(100),
-			MTP_int(0), // max_id
-			MTP_int(0), // min_id
+			MTP_int(0),
+			MTP_int(0),
 			MTP_long(0)
 		)).done([=](const Api::HistoryRequestResult &result) {
 			const auto parsed = Api::ParseHistoryResult(
@@ -392,7 +392,7 @@ void AddAyuGramActions(PeerData *peerData,
 	const auto topicId = topic ? topic->rootId().bare : 0;
 
 	addCallback(Window::PeerMenuCallback::Args{
-		.text = u"AyuGram"_q,
+		.text = AyuSettings::getInstance().effectiveAppName(),
 		.handler = nullptr,
 		.icon = &st::menuIconGroupReactions,
 		.fillSubmenu = [=](not_null<Ui::PopupMenu*> menu) {
@@ -437,21 +437,29 @@ void AddAyuGramActions(PeerData *peerData,
 					},
 					&st::menuIconArchive);
 				if (showFilters || filteredToggleShown.value_or(false)) addAction({ .isSeparator = true });
-				// AyuGram+: per-chat exclusion from saving deleted messages
 				const auto dialogId = getDialogIdFromPeer(peerData);
-				const auto excluded = AyuSettings::getInstance().isDeletedSavingExcluded(dialogId);
-				addAction(
-					excluded
-						? tr::ayu_ContextIncludeDeleted(tr::now)
-						: tr::ayu_ContextExcludeDeleted(tr::now),
-					[=] {
-						if (excluded) {
-							AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
-						} else {
-							AyuSettings::getInstance().addDeletedExcludedDialog(dialogId);
-						}
+				addAction({
+					.text = tr::ayu_ContextIncludeDeleted(tr::now),
+					.make = [=](not_null<Ui::PopupMenu*> popup) -> base::unique_qptr<Ui::Menu::ItemBase> {
+						const auto excluded = AyuSettings::getInstance().isDeletedSavingExcluded(dialogId);
+						auto item = base::make_unique_q<Ui::Menu::Toggle>(
+							popup->menu(),
+							popup->st().menu,
+							tr::ayu_ContextIncludeDeleted(tr::now),
+							[=] {
+								if (AyuSettings::getInstance().isDeletedSavingExcluded(dialogId)) {
+									AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
+								} else {
+									AyuSettings::getInstance().addDeletedExcludedDialog(dialogId);
+								}
+							},
+							&st::menuIconArchive,
+							&st::menuIconArchive);
+						item->action()->setCheckable(true);
+						item->action()->setChecked(!excluded);
+						return item;
 					},
-					excluded ? &st::menuIconCaptionShow : &st::menuIconCaptionHide);
+				});
 				addAction({
 					.text = tr::ayu_ClearDeletedMenuText(tr::now),
 					.handler = ClearDeletedMessagesHandler(sessionController, peerData, topicId),
@@ -623,7 +631,6 @@ void AddDeleteOwnMessagesAction(PeerData *peerData,
 		tr::ayu_DeleteOwnMessages(tr::now),
 		DeleteMyMessagesHandler(sessionController, peerData),
 		&st::menuIconTTL);
-	// AyuGram+
 	addCallback(
 		tr::ayu_RemoveMyReactions(tr::now),
 		RemoveMyReactionsHandler(sessionController, peerData),

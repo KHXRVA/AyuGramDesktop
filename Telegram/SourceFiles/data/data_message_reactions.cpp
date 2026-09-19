@@ -320,7 +320,6 @@ PossibleItemReactionsRef LookupPossibleReactions(
 			}
 		}
 		toFront(reactions->favoriteId());
-		// AyuGram+: pinned reactions go first (per chat type).
 		if (!limited) {
 			const auto &ayu = AyuSettings::getInstance();
 			const auto channel = peer->isBroadcast();
@@ -331,7 +330,9 @@ PossibleItemReactionsRef LookupPossibleReactions(
 				const auto &pinned = channel
 					? ayu.pinnedReactionsChannelsList()
 					: ayu.pinnedReactionsChatsList();
-				for (const auto &entry : pinned | ranges::views::reverse) {
+				auto customIds = std::vector<ReactionId>();
+				auto emojiIds = std::vector<ReactionId>();
+				for (const auto &entry : pinned) {
 					const auto id = entry.startsWith(u"custom:"_q)
 						? ReactionId{ DocumentId(entry.mid(7).toULongLong()) }
 						: ReactionId{ entry };
@@ -343,12 +344,29 @@ PossibleItemReactionsRef LookupPossibleReactions(
 						&& !ranges::contains(allowed.some, id)) {
 						continue;
 					}
+					(id.custom() ? customIds : emojiIds).push_back(id);
+				}
+				const auto pushFront = [&](const ReactionId &id) {
 					if (!ranges::contains(result.recent, id, &Reaction::id)) {
 						if (const auto temp = reactions->lookupTemporary(id)) {
 							result.recent.insert(begin(result.recent), temp);
 						}
 					}
 					toFront(id);
+				};
+				for (const auto &id : customIds | ranges::views::reverse) {
+					pushFront(id);
+				}
+				for (const auto &id : emojiIds | ranges::views::reverse) {
+					pushFront(id);
+				}
+				if (emojiIds.empty() && !customIds.empty() && result.recent.size() > 1) {
+					const auto first = ranges::find_if(result.recent, [](not_null<const Reaction*> r) {
+						return !r->id.custom() && !r->id.paid();
+					});
+					if (first != end(result.recent) && first != begin(result.recent)) {
+						std::rotate(begin(result.recent), first, first + 1);
+					}
 				}
 			}
 		}

@@ -1851,7 +1851,6 @@ void History::addEdgesToSharedMedia() {
 }
 
 void History::addOlderSlice(const QVector<MTPMessage> &sliceFromServer) {
-	// AyuGram+: keep locally saved deleted messages in their place.
 	auto slice = sliceFromServer;
 	if (!slice.isEmpty()) {
 		auto sliceMin = MsgId();
@@ -1914,7 +1913,6 @@ void History::addCreatedOlderSlice(
 void History::addNewerSlice(const QVector<MTPMessage> &sliceFromServer) {
 	bool wasLoadedAtBottom = loadedAtBottom();
 
-	// AyuGram+: keep locally saved deleted messages in their place.
 	auto slice = sliceFromServer;
 	if (!slice.isEmpty()) {
 		auto sliceMin = MsgId();

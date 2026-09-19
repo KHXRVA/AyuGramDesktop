@@ -181,7 +181,7 @@ Widget::Widget(
 		}, lifetime());
 	}
 
-	_footer->setText(QString("%1 Desktop v%2").arg(AyuSettings::getInstance().effectiveAppName(), currentVersionText()));
+	_footer->setText(QString("%1 v%2").arg(AyuSettings::getInstance().effectiveAppNameFull(), currentVersionText()));
 }
 
 rpl::producer<> Widget::showSettingsRequested() const {

@@ -1025,7 +1025,7 @@ void Notification::updateNotifyDisplay() {
 				: TextWithEntities{ name };
 		};
 		auto title = options.hideNameAndPhoto
-			? TextWithEntities{ AyuSettings::getInstance().effectiveAppName() + u" Desktop"_q }
+			? TextWithEntities{ AyuSettings::getInstance().effectiveAppNameFull() }
 			: reminder
 			? tr::lng_notification_reminder(tr::now, tr::marked)
 			: topicWithChat();

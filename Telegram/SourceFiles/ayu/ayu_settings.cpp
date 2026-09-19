@@ -1118,7 +1118,6 @@ void AyuSettings::setStreamerMode(bool val) {
 	save();
 }
 
-// AyuGram+ additions
 
 void AyuSettings::addDeletedExcludedDialog(int64 dialogId) {
 	if (_deletedExcludedDialogs.insert(dialogId).second) {
@@ -1160,6 +1159,30 @@ void AyuSettings::setCustomAppName(const QString &val) {
 QString AyuSettings::effectiveAppName() const {
 	const auto &custom = _customAppName.current();
 	return custom.isEmpty() ? QString::fromUtf8("AyuGram") : custom;
+}
+
+QString AyuSettings::effectiveAppNameFull() const {
+	const auto &custom = _customAppName.current();
+	return custom.isEmpty() ? QString::fromUtf8("AyuGram Desktop") : custom;
+}
+
+QString AyuSettings::brand(const QString &text) const {
+	if (_customAppName.current().isEmpty()) {
+		return text;
+	}
+	auto result = text;
+	result.replace(QString::fromUtf8("AyuGram Desktop"), effectiveAppNameFull());
+	result.replace(QString::fromUtf8("AyuGram"), effectiveAppName());
+	return result;
+}
+
+rpl::producer<QString> AyuSettings::branded(rpl::producer<QString> text) const {
+	return rpl::combine(
+		std::move(text),
+		_customAppName.value()
+	) | rpl::map([](const QString &value, const QString &) {
+		return AyuSettings::getInstance().brand(value);
+	});
 }
 
 void AyuSettings::setRoundVideoSize(int val) {

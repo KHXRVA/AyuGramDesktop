@@ -236,13 +236,12 @@ private:
 	rpl::variable<bool> _showHeaderDecorations = true;
 	rpl::variable<bool> _showColorfulReplies = true;
 	rpl::variable<bool> _revealSpoilers = true;
-	// AyuGram+ additions
 	rpl::variable<bool> _useUsernames = false;
-	rpl::variable<int> _avatarMode = 0; // 0 - normal, 1 - initials, 2 - solid circle, 3 - hidden
+	rpl::variable<int> _avatarMode = 0;
 	rpl::variable<bool> _blurAvatars = false;
 	rpl::variable<bool> _blurNames = false;
-	rpl::variable<int> _shotStyle = 0; // 0 - classic, 1 - cards, 2 - code window
-	rpl::variable<int> _gradientPreset = 0; // 0 - none, 1.. presets
+	rpl::variable<int> _shotStyle = 0;
+	rpl::variable<int> _gradientPreset = 0;
 
 	rpl::variable<int> _embeddedThemeType = -1;
 	rpl::variable<uint32> _embeddedThemeAccentColor = 0;
@@ -375,7 +374,6 @@ public:
 	[[nodiscard]] bool singleCornerRadius() const { return _singleCornerRadius.current(); }
 	[[nodiscard]] bool streamerMode() const { return _streamerMode.current(); }
 
-	// AyuGram+ additions
 	[[nodiscard]] bool saveDeletedInChannels() const { return _saveDeletedInChannels.current(); }
 	[[nodiscard]] bool saveDeletedInComments() const { return _saveDeletedInComments.current(); }
 	[[nodiscard]] bool isDeletedSavingExcluded(int64 dialogId) const { return _deletedExcludedDialogs.contains(dialogId); }
@@ -385,6 +383,9 @@ public:
 	[[nodiscard]] bool hideWalletInDrawer() const { return _hideWalletInDrawer.current(); }
 	[[nodiscard]] const QString &customAppName() const { return _customAppName.current(); }
 	[[nodiscard]] QString effectiveAppName() const;
+	[[nodiscard]] QString effectiveAppNameFull() const;
+	[[nodiscard]] QString brand(const QString &text) const;
+	[[nodiscard]] rpl::producer<QString> branded(rpl::producer<QString> text) const;
 	[[nodiscard]] int roundVideoSize() const { return _roundVideoSize.current(); }
 	[[nodiscard]] bool pinnedReactionsInChats() const { return _pinnedReactionsInChats.current(); }
 	[[nodiscard]] bool pinnedReactionsInChannels() const { return _pinnedReactionsInChannels.current(); }
@@ -777,13 +778,12 @@ private:
 	rpl::variable<bool> _singleCornerRadius = false;
 	rpl::variable<bool> _streamerMode = false;
 
-	// AyuGram+ additions
 	rpl::variable<bool> _saveDeletedInChannels = true;
 	rpl::variable<bool> _saveDeletedInComments = true;
 	std::unordered_set<int64> _deletedExcludedDialogs;
 	rpl::variable<bool> _hideWalletInDrawer = false;
 	rpl::variable<QString> _customAppName;
-	rpl::variable<int> _roundVideoSize = 100; // percent
+	rpl::variable<int> _roundVideoSize = 100;
 	rpl::variable<bool> _pinnedReactionsInChats = false;
 	rpl::variable<bool> _pinnedReactionsInChannels = false;
 	std::vector<QString> _pinnedReactionsChatsList;

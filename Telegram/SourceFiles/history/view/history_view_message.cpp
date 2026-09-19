@@ -2613,8 +2613,6 @@ void Message::paintFromName(
 			? (availableWidth - statusWidth)
 			: availableWidth) - viaSkipWidth,
 		0);
-	// AyuGram+: the emoji status next to a blurred name would give the
-	// sender away, skip it while blurring names in a shot.
 	if (statusWidth
 		&& availableWidth > statusWidth
 		&& !AyuFeatures::MessageShot::ShouldBlurNames()) {
@@ -2675,7 +2673,6 @@ void Message::paintFromName(
 		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
 		trect.topLeft());
 	if (AyuFeatures::MessageShot::ShouldBlurNames()) {
-		// AyuGram+: a soft block instead of the sender name in shots
 		AyuFeatures::MessageShot::PaintBlurredBlock(
 			p,
 			QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
@@ -5596,7 +5593,7 @@ void Message::validateFromNameText(PeerData *from) const {
 		_fromNameVersion = version;
 		_fromName.setText(
 			st::msgNameStyle,
-			AyuFeatures::MessageShot::DisplayNameFor(from), // AyuGram+: usernames in shots
+			AyuFeatures::MessageShot::DisplayNameFor(from),
 			Ui::NameTextOptions());
 	}
 	if (from->isPremium()

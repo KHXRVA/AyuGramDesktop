@@ -29,8 +29,6 @@
 namespace AyuUi {
 namespace {
 
-// Builds the field content from the stored entries: plain emoji stay as
-// text, custom emoji become custom-emoji tags (rendered as animated ones).
 [[nodiscard]] TextWithTags EntriesToText(const std::vector<QString> &entries) {
 	auto result = TextWithTags();
 	for (const auto &entry : entries) {
@@ -42,7 +40,6 @@ namespace {
 			if (!id) {
 				continue;
 			}
-			// Custom emoji need some text to attach the tag to.
 			const auto placeholder = QString::fromUtf8("\xF0\x9F\x99\x82");
 			result.tags.push_back({
 				.offset = int(result.text.size()),
@@ -76,7 +73,6 @@ namespace {
 			result.push_back(entry);
 		}
 	}
-	// Plain emoji from the rest of the text, keeping the typed order.
 	auto entriesInOrder = std::vector<std::pair<int, QString>>();
 	for (auto i = 0; i < int(result.size()); ++i) {
 		entriesInOrder.push_back({ covered[i].first, result[i] });
@@ -112,7 +108,7 @@ namespace {
 	return result;
 }
 
-} // namespace
+}
 
 void PinnedReactionsBox(
 		not_null<Ui::GenericBox*> box,
@@ -138,7 +134,6 @@ void PinnedReactionsBox(
 	field->setTextWithTags(EntriesToText(current));
 	field->setMaxLength(512);
 
-	// Emoji panel (regular + custom emoji) right in the box.
 	struct State {
 		base::unique_qptr<ChatHelpers::TabbedPanel> emojiPanel;
 	};
@@ -190,4 +185,4 @@ void PinnedReactionsBox(
 	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
 }
 
-} // namespace AyuUi
+}

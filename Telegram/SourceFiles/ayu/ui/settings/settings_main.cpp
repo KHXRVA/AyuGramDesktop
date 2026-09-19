@@ -71,8 +71,8 @@ void BuildVersionInfo(SectionBuilder &builder) {
 				ctx.container,
 				AyuSettings::getInstance().customAppNameValue(
 				) | rpl::map([](const QString &) {
-					return AyuSettings::getInstance().effectiveAppName()
-						+ QString(" Desktop v")
+					return AyuSettings::getInstance().effectiveAppNameFull()
+						+ QString(" v")
 						+ QString::fromLatin1(AppVersionStr);
 				}),
 				st::boxTitle),

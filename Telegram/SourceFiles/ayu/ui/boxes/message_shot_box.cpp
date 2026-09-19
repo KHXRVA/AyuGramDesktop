@@ -295,7 +295,6 @@ void MessageShotBox::setupContent() {
 
 			Ui::show(std::move(box), Ui::LayerOption::KeepOther);
 		});
-	// AyuGram+: style / background / identity options
 	{
 		const auto styleOptions = std::vector{
 			tr::ayu_MessageShotStyleClassic(tr::now),

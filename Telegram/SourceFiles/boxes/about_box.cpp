@@ -58,7 +58,7 @@ rpl::producer<TextWithEntities> Text() {
 } // namespace
 
 void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controller) {
-	box->setTitle(rpl::single(AyuSettings::getInstance().effectiveAppName() + u" Desktop"_q));
+	box->setTitle(rpl::single(AyuSettings::getInstance().effectiveAppNameFull()));
 
 	auto layout = box->verticalLayout();
 

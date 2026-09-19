@@ -3866,9 +3866,6 @@ void ApiWrap::forwardMessages(
 		FnMut<void()> &&successCallback) {
 	Expects(!draft.items.empty());
 
-	// AyuGram+: "hide replies" - when the sender is dropped and a message
-	// carries a reply/quote header, send copies instead of forwarding so
-	// the reply header is not preserved by the server.
 	const auto hideReplies = AyuSettings::getInstance().hideReplyOnForward()
 		&& (draft.options != Data::ForwardOptions::PreserveInfo)
 		&& ranges::any_of(draft.items, [](not_null<HistoryItem*> item) {

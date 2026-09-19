@@ -8,8 +8,6 @@
 
 namespace AyuLocalLang {
 
-// Applies built-in translations for AyuGram+ keys according to the
-// language currently selected in the client.
 void Apply();
 
-} // namespace AyuLocalLang
+}

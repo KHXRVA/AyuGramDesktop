@@ -77,7 +77,6 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.toggledWhenAll = false,
 	});
 
-	// AyuGram+: pinned reactions
 	builder.addSkip();
 	builder.addSubsectionTitle(tr::ayu_SettingsPinnedReactions());
 	ayu.addSettingToggle({
@@ -359,7 +358,6 @@ void BuildWideMessagesMultiplier(
 	builder.addDividerText(tr::ayu_SettingsWideMultiplierDescription());
 	builder.addSkip();
 
-	// AyuGram+: round video message size (100%..300%, step 25%)
 	ayu.addSlider({
 		.id = u"ayu/roundVideoSize"_q,
 		.title = tr::ayu_SettingsRoundVideoSize(),

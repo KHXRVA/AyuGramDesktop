@@ -760,7 +760,6 @@ void InnerWidget::jumpToDate(const QDate &date) {
 			_messageIds.clear();
 			_itemsByData.clear();
 			_itemDates.clear();
-			// Load messages with id <= found going up and > found going down.
 			_minId = id + 1;
 			_maxId = id;
 			_upLoaded = false;

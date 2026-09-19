@@ -665,7 +665,6 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.getter = &AyuSettings::saveForBots,
 		.setter = &AyuSettings::setSaveForBots,
 	});
-	// AyuGram+: channel / comments toggles and per-chat exclusions
 	ayu.addSettingToggle({
 		.id = u"ayu/saveDeletedInChannels"_q,
 		.title = tr::ayu_SettingsSaveDeletedInChannels(),
@@ -752,7 +751,6 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 				controller->show(Ui::MakeConfirmBox({
 					.text = tr::ayu_ClearDeletedInChannelsText(tr::now),
 					.confirmed = [=](Fn<void()> &&close) {
-						// Peer lookups must stay on the main thread.
 						const auto cleared = AyuMessages::clearDeletedMessagesInChannels(
 							&controller->session());
 						Ui::Toast::Show(tr::ayu_ClearDeletedInChannelsDone(tr::now, lt_count, cleared));
@@ -816,7 +814,10 @@ const auto kMeta = BuildHelper({
 } // namespace
 
 rpl::producer<QString> AyuGhost::title() {
-	return rpl::single(QString("AyuGram"));
+	return AyuSettings::getInstance().customAppNameValue(
+	) | rpl::map([](const QString &) {
+		return AyuSettings::getInstance().effectiveAppName();
+	});
 }
 
 AyuGhost::AyuGhost(

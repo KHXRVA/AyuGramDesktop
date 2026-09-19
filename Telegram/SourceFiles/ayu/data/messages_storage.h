@@ -10,7 +10,7 @@
 
 namespace Main {
 class Session;
-} // namespace Main
+}
 
 namespace AyuMessages {
 
@@ -25,8 +25,6 @@ void removeDeletedMessage(not_null<HistoryItem*> item);
 void clearDeletedMessages(not_null<PeerData*> peer, ID topicId);
 std::vector<AyuMessageBase> getDeletedMessagesByDate(not_null<PeerData*> peer, ID topicId, int dateFrom, int dateTill, int totalLimit);
 int countDeletedMessages(not_null<PeerData*> peer);
-// Clears saved deleted messages in every broadcast channel; returns the
-// number of channels that were cleared.
 int clearDeletedMessagesInChannels(not_null<Main::Session*> session);
 
 }

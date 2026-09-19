@@ -182,7 +182,6 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setDisableOpenLinkWarning,
 	});
 
-	// AyuGram+: custom app name / forward without replies
 	builder.addButton({
 		.id = u"ayu/customAppName"_q,
 		.title = tr::ayu_SettingsCustomAppName(),

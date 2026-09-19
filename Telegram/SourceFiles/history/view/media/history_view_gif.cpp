@@ -375,7 +375,6 @@ QSize Gif::countThumbSize(int &inOutWidthMax) const {
 		} else if (_data->isVideoFile()) {
 			return st::maxMediaSize;
 		} else if (_data->isVideoMessage()) {
-			// AyuGram+: scalable round video messages
 			return st::maxVideoMessageSize
 				* AyuSettings::getInstance().roundVideoSize() / 100;
 		}
@@ -422,7 +421,6 @@ QSize Gif::countOptimalSize() {
 		maxMediaWidth);
 	auto thumbMaxWidth = st::msgMaxWidth;
 	if (_data->isVideoMessage() && !hostedInstantView) {
-		// AyuGram+: let big round videos exceed the usual bubble width
 		accumulate_max(
 			thumbMaxWidth,
 			st::maxVideoMessageSize

@@ -305,7 +305,6 @@ void SetupMenuBots(
 				continue;
 			} else if (AyuSettings::getInstance().hideWalletInDrawer()
 				&& user->username().compare(u"wallet"_q, Qt::CaseInsensitive) == 0) {
-				// AyuGram+: hide the Wallet bot from the drawer
 				continue;
 			} else if (const auto media = bot.media; !media->loaded()) {
 				if (!*iconLoadLifetime) {

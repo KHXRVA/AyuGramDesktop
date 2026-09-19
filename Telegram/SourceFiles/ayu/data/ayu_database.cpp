@@ -230,7 +230,6 @@ void moveCurrentDatabase() {
 
 void initialize() {
 	try {
-		// AyuGram+: WAL journal keeps writes cheap and readers unblocked.
 		storage.pragma.journal_mode(sqlite_orm::journal_mode::WAL);
 		storage.pragma.synchronous(1);
 	} catch (const std::exception &ex) {

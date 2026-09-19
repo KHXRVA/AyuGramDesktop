@@ -26,8 +26,6 @@ namespace {
 
 constexpr auto kMaxInjectedPerSlice = 200;
 
-// Ids of the items created from the local database that still have to
-// be marked as deleted once the history slice is applied.
 base::flat_set<FullMsgId> InjectedPending;
 
 [[nodiscard]] MTPPeer PeerToMTP(PeerId id) {
@@ -56,12 +54,9 @@ base::flat_set<FullMsgId> InjectedPending;
 	} else if (owner.chatLoaded(ChatId(bare))) {
 		return peerFromChat(ChatId(bare));
 	}
-	// Unknown sender, most likely a user we have not seen yet.
 	return peerFromUser(UserId(bare));
 }
 
-// Rebuilds the document attributes from a DocumentData, so that passing
-// the document through Data::Session::processDocument keeps its type.
 [[nodiscard]] QVector<MTPDocumentAttribute> AttributesFor(
 		not_null<DocumentData*> document) {
 	auto result = QVector<MTPDocumentAttribute>();
@@ -228,14 +223,14 @@ base::flat_set<FullMsgId> InjectedPending;
 		MTP_flags(flags),
 		MTP_int(message.messageId),
 		(from && !post) ? PeerToMTP(from) : MTPPeer(),
-		MTPint(), // from_boosts_applied
-		MTPstring(), // from_rank
+		MTPint(),
+		MTPstring(),
 		PeerToMTP(history->peer->id),
-		MTPPeer(), // saved_peer_id
+		MTPPeer(),
 		MTPMessageFwdHeader(),
-		MTPlong(), // via_bot_id
-		MTPlong(), // via_business_bot_id
-		MTPPeer(), // guestchat_via_from
+		MTPlong(),
+		MTPlong(),
+		MTPPeer(),
 		MTPMessageReplyHeader(),
 		MTP_int(message.date),
 		MTP_string(QString::fromStdString(message.text)),
@@ -243,26 +238,26 @@ base::flat_set<FullMsgId> InjectedPending;
 		MTPReplyMarkup(),
 		entities,
 		MTP_int(message.views),
-		MTPint(), // forwards
+		MTPint(),
 		MTPMessageReplies(),
 		MTP_int((flags & Flag::f_edit_date) ? message.editDate : 0),
 		MTP_string(QString::fromStdString(message.postAuthor)),
-		MTPlong(), // grouped_id
+		MTPlong(),
 		MTPMessageReactions(),
 		MTPVector<MTPRestrictionReason>(),
-		MTPint(), // ttl_period
-		MTPint(), // quick_reply_shortcut_id
-		MTPlong(), // effect
+		MTPint(),
+		MTPint(),
+		MTPlong(),
 		MTPFactCheck(),
-		MTPint(), // report_delivery_until_date
-		MTPlong(), // paid_message_stars
+		MTPint(),
+		MTPlong(),
 		MTPSuggestedPost(),
-		MTPint(), // schedule_repeat_period
-		MTPstring(), // summary_from_language
+		MTPint(),
+		MTPstring(),
 		MTPRichMessage());
 }
 
-} // namespace
+}
 
 QVector<MTPMessage> mergeDeletedIntoSlice(
 		not_null<History*> history,
@@ -280,8 +275,6 @@ QVector<MTPMessage> mergeDeletedIntoSlice(
 	if (settings.isDeletedSavingExcluded(getDialogIdFromPeer(peer))) {
 		return slice;
 	}
-	// Do not inject into forum topics / monoforums: their slices are
-	// filtered by topic and the local storage keys them differently.
 	if (peer->isForum() || peer->isMonoforum()) {
 		return slice;
 	}
@@ -337,7 +330,6 @@ void markInjectedAsDeleted(not_null<History*> history) {
 			}
 			handled.push_back(id);
 		} else {
-			// Item was not created, forget about it.
 			handled.push_back(id);
 		}
 	}
@@ -346,4 +338,4 @@ void markInjectedAsDeleted(not_null<History*> history) {
 	}
 }
 
-} // namespace AyuMessages
+}

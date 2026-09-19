@@ -10,12 +10,10 @@
 
 namespace Window {
 class SessionController;
-} // namespace Window
+}
 
 namespace AyuUi {
 
-// Edits a list of pinned reactions. Entries are either plain emoji or
-// "custom:<document id>" for custom emoji.
 void PinnedReactionsBox(
 	not_null<Ui::GenericBox*> box,
 	not_null<Window::SessionController*> controller,
@@ -23,4 +21,4 @@ void PinnedReactionsBox(
 	std::vector<QString> current,
 	Fn<void(std::vector<QString>)> save);
 
-} // namespace AyuUi
+}

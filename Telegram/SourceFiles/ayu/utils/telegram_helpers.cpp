@@ -719,12 +719,10 @@ bool isMessageSavable(const not_null<HistoryItem*> item) {
 	}
 
 	const auto peer = item->history()->peer;
-	// AyuGram+: per-chat exclusions
 	if (settings.isDeletedSavingExcluded(getDialogIdFromPeer(peer))) {
 		return false;
 	}
 	if (const auto channel = peer->asChannel()) {
-		// AyuGram+: broadcast channels / discussion groups toggles
 		if (channel->isBroadcast() && !settings.saveDeletedInChannels()) {
 			return false;
 		}

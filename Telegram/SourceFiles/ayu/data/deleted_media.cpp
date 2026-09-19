@@ -152,7 +152,7 @@ void SaveThumbnail(
 	return std::vector<char>(bytes.begin(), bytes.end());
 }
 
-} // namespace
+}
 
 QString mediaRootPath() {
 	return cWorkingDir() + u"tdata/ayu_media/"_q;
@@ -223,8 +223,6 @@ void saveMediaForMessage(not_null<HistoryItem*> item, AyuMessageBase &message) {
 			saved = WriteBytes(path, bytes);
 		}
 		if (!saved) {
-			// Nothing local, keep at least the thumbnail so the viewer
-			// can show what the message looked like.
 			if (const auto thumb = view->thumbnail()) {
 				SaveThumbnail(thumb->original(), base, message);
 				message.documentType = int(SavedMediaType::Document);
@@ -270,7 +268,6 @@ PhotoData *restorePhoto(
 		? size.scaled(kThumbnailSide, kThumbnailSide, Qt::KeepAspectRatio)
 		: QImageReader(AbsoluteFromRelative(message.hqThumbPath)).size();
 
-	// Stable fake id so that repeated openings reuse the same PhotoData.
 	const auto id = PhotoId(0x7000000000000000ULL
 		^ (uint64(message.dialogId) << 20)
 		^ uint64(message.messageId));
@@ -394,4 +391,4 @@ void removeSavedMediaForDialog(ID userId, ID dialogId) {
 	}
 }
 
-} // namespace AyuMessages
+}

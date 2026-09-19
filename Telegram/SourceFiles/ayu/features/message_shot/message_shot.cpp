@@ -205,7 +205,6 @@ QColor makeDefaultBackgroundColor() {
 	return st::boxBg->c.darker(110);
 }
 
-// AyuGram+ helpers.
 
 QString DisplayNameFor(not_null<PeerData*> peer) {
 	if (isTakingShot()
@@ -241,7 +240,7 @@ void PaintBlurredBlock(
 		return;
 	}
 	const auto ratio = style::DevicePixelRatio();
-	const auto extra = 6; // room for the soft edge
+	const auto extra = 6;
 	auto image = QImage(
 		(rect.width() + extra * 2) * ratio,
 		(rect.height() + extra * 2) * ratio,
@@ -273,27 +272,27 @@ int GradientPresetsCount() {
 QLinearGradient GradientPreset(int index, const QRect &rect) {
 	auto gradient = QLinearGradient(rect.topLeft(), rect.bottomRight());
 	switch (index) {
-	case 1: // Purple
+	case 1:
 		gradient.setColorAt(0., QColor(0x8E, 0x2D, 0xE2));
 		gradient.setColorAt(1., QColor(0xE1, 0x00, 0xFF));
 		break;
-	case 2: // Ocean
+	case 2:
 		gradient.setColorAt(0., QColor(0x21, 0x93, 0xB0));
 		gradient.setColorAt(1., QColor(0x6D, 0xD5, 0xED));
 		break;
-	case 3: // Sunset
+	case 3:
 		gradient.setColorAt(0., QColor(0xFF, 0x51, 0x2F));
 		gradient.setColorAt(1., QColor(0xF0, 0x98, 0x19));
 		break;
-	case 4: // Mint
+	case 4:
 		gradient.setColorAt(0., QColor(0x11, 0x99, 0x8E));
 		gradient.setColorAt(1., QColor(0x38, 0xEF, 0x7D));
 		break;
-	case 5: // Night
+	case 5:
 		gradient.setColorAt(0., QColor(0x0F, 0x20, 0x27));
 		gradient.setColorAt(1., QColor(0x2C, 0x53, 0x64));
 		break;
-	case 6: // Peach
+	case 6:
 		gradient.setColorAt(0., QColor(0xEE, 0x9C, 0xA7));
 		gradient.setColorAt(1., QColor(0xFF, 0xDD, 0xE1));
 		break;
@@ -316,13 +315,11 @@ constexpr auto kCodeHeaderHeight = 38;
 constexpr auto kCodeDotRadius = 6;
 constexpr auto kCodeDotSpacing = 22;
 
-// One rendered message (or a run of attached messages from one sender).
 struct RenderedPart {
-	QImage image; // already trimmed
+	QImage image;
 	bool attachedToPrevious = false;
 };
 
-// Bounding rectangle of the non-transparent pixels, null if empty.
 [[nodiscard]] QRect ContentBounds(const QImage &image) {
 	auto minX = image.width();
 	auto minY = image.height();
@@ -435,7 +432,6 @@ void PaintBackground(QPainter &p, const QRect &rect, int gradientPreset) {
 		const std::vector<RenderedPart> &parts,
 		int gradientPreset) {
 	const auto ratio = style::DevicePixelRatio();
-	// Group attached messages into one card.
 	struct Card {
 		std::vector<const RenderedPart*> parts;
 		int width = 0;
@@ -518,7 +514,6 @@ void PaintBackground(QPainter &p, const QRect &rect, int gradientPreset) {
 			q.drawEllipse(QPoint(x, cy), kCodeDotRadius, kCodeDotRadius);
 			x += kCodeDotSpacing;
 		}
-		// Thin separator under the header.
 		auto line = CardColor();
 		line = Window::Theme::IsNightMode() ? line.lighter(140) : line.darker(112);
 		q.fillRect(card.x(), card.y() + kCodeHeaderHeight - 1, card.width(), 1, line);
@@ -542,7 +537,7 @@ void PaintShotUserpic(
 		bool paused) {
 	const auto &shot = AyuSettings::getInstance().messageShotSettings();
 	const auto mode = shot.avatarMode();
-	if (mode == 3) { // hidden
+	if (mode == 3) {
 		return;
 	}
 	const auto from = message->displayFrom();
@@ -566,7 +561,7 @@ void PaintShotUserpic(
 			info->emptyUserpic.paintCircle(q, px, py, outerWidth, size);
 		}
 	};
-	if (mode == 1) { // initials
+	if (mode == 1) {
 		const auto name = from ? DisplayNameFor(from) : info->name;
 		const auto colorIndex = from
 			? from->colorIndex()
@@ -576,7 +571,7 @@ void PaintShotUserpic(
 			name
 		).paintCircle(p, x, y, outerWidth, size);
 		return;
-	} else if (mode == 2) { // solid circle
+	} else if (mode == 2) {
 		auto hq = PainterHighQualityEnabler(p);
 		p.setPen(Qt::NoPen);
 		p.setBrush(Window::Theme::IsNightMode()
@@ -598,7 +593,6 @@ void PaintShotUserpic(
 		paintOriginal(q, 0, 0);
 	}
 	image = BlurImage(std::move(image), size * ratio / 4);
-	// Keep the circle shape after blurring.
 	auto masked = QImage(size * ratio, size * ratio, QImage::Format_ARGB32_Premultiplied);
 	masked.setDevicePixelRatio(ratio);
 	masked.fill(Qt::transparent);
@@ -614,7 +608,7 @@ void PaintShotUserpic(
 	p.drawImage(x, y, masked);
 }
 
-} // namespace
+}
 
 void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage&,bool)>& callback) {
 	const auto controller = config.controller;
@@ -709,9 +703,6 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 			if (document->hasThumbnail() && !media->thumbnail()) {
 				document->loadThumbnail(origin);
 			}
-			// Stickers are painted from the document itself, keep the
-			// media view alive and make sure the data is loaded so the
-			// sticker does not disappear when it is out of the viewport.
 			if (document->sticker() && !media->loaded()) {
 				document->save(origin, QString());
 			}
@@ -744,7 +735,6 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 
 		base::flat_map<not_null<PeerData*>, Ui::PeerUserpicView> userpics;
 
-		// draw every message into its own image
 		struct Drawn {
 			QImage image;
 			QRect bounds;
@@ -807,8 +797,6 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 			return;
 		}
 
-		// Crop every message by the common horizontal bounds so that
-		// messages with and without userpics stay aligned.
 		auto left = drawn.front().bounds.left();
 		auto right = drawn.front().bounds.right();
 		for (const auto &part : drawn) {

@@ -125,7 +125,6 @@ ayuServiceTimeBadgeGap: 8px;
 ayuServiceTimeBadgeTrailingInset: 3px;
 ayuServiceTimeBadgeLastLineWidthAdd: 9px;
 
-// AyuGram+: calendar button in the deleted messages viewer top bar
 ayuTopBarCalendar: IconButton(topBarSearch) {
 	icon: icon {{ "dialogs/dialogs_calendar", menuIconFg }};
 	iconOver: icon {{ "dialogs/dialogs_calendar", menuIconFgOver }};

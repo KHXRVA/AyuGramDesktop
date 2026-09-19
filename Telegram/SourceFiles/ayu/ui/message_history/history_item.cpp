@@ -121,7 +121,6 @@ void GenerateItems(
 	const auto entities = AyuMapper::deserializeTextWithEntities(message.textEntities);
 	textAndEntities.entities = Api::EntitiesFromMTP(&history->session(), entities.v);
 
-	// AyuGram+: restore saved media as a local photo / document message.
 	const auto makeFields = [&] {
 		base::flags<MessageFlag> flags = MessageFlag::AdminLogEntry;
 		if (from) {

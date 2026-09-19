@@ -1600,8 +1600,6 @@ void ListenWrap::applyTrimSelection(bool resetSelection) {
 	if (selectedSamples < kMinSamples) {
 		return;
 	}
-	// AyuGram+: round video messages are re-encoded to the selected range,
-	// voice messages go through the fast audio trimming path.
 	const auto isRoundVideo = (_data->minithumbsCount > 0)
 		|| _data->content.mid(4, 4) == "ftyp";
 	auto trimmed = ::Media::AudioEditResult();
@@ -2976,7 +2974,7 @@ void VoiceRecordBar::stopRecording(StopType type, bool ttlBeforeHide) {
 						_send,
 						&_show->session(),
 						&_data,
-						true, // AyuGram+: allow trimming round videos
+						true,
 						_cancelFont);
 					_listenChanges.fire({});
 

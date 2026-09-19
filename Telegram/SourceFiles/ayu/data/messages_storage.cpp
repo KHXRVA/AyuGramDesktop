@@ -76,7 +76,6 @@ void map(not_null<HistoryItem*> item, AyuMessageBase &message) {
 	message.text = serializedText.first;
 	message.textEntities = serializedText.second;
 
-	// AyuGram+: media is copied to tdata/ayu_media when available locally
 	saveMediaForMessage(item, message);
 }
 
