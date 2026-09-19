@@ -8,12 +8,14 @@
 
 #include "ayu/libs/json.hpp"
 #include "ayu/libs/json_ext.hpp"
+#include "rpl/event_stream.h"
 #include "rpl/lifetime.h"
 #include "rpl/producer.h"
 #include "rpl/variable.h"
 
 #include <map>
 #include <unordered_set>
+#include <vector>
 
 
 namespace Main {
@@ -189,6 +191,12 @@ public:
 	[[nodiscard]] bool showHeaderDecorations() const { return _showHeaderDecorations.current(); }
 	[[nodiscard]] bool showColorfulReplies() const { return _showColorfulReplies.current(); }
 	[[nodiscard]] bool revealSpoilers() const { return _revealSpoilers.current(); }
+	[[nodiscard]] bool useUsernames() const { return _useUsernames.current(); }
+	[[nodiscard]] int avatarMode() const { return _avatarMode.current(); }
+	[[nodiscard]] bool blurAvatars() const { return _blurAvatars.current(); }
+	[[nodiscard]] bool blurNames() const { return _blurNames.current(); }
+	[[nodiscard]] int shotStyle() const { return _shotStyle.current(); }
+	[[nodiscard]] int gradientPreset() const { return _gradientPreset.current(); }
 	[[nodiscard]] int embeddedThemeType() const { return _embeddedThemeType.current(); }
 	[[nodiscard]] uint32 embeddedThemeAccentColor() const { return _embeddedThemeAccentColor.current(); }
 	[[nodiscard]] uint64 cloudThemeId() const { return _cloudThemeId.current(); }
@@ -203,6 +211,12 @@ public:
 	void setShowHeaderDecorations(bool val);
 	void setShowColorfulReplies(bool val);
 	void setRevealSpoilers(bool val);
+	void setUseUsernames(bool val);
+	void setAvatarMode(int val);
+	void setBlurAvatars(bool val);
+	void setBlurNames(bool val);
+	void setShotStyle(int val);
+	void setGradientPreset(int val);
 
 	void setEmbeddedTheme(int type, uint32 accentColor = 0);
 	void setCloudTheme(uint64 accountId, uint64 id, uint64 accessHash, uint64 documentId, const QString &title);
@@ -222,6 +236,13 @@ private:
 	rpl::variable<bool> _showHeaderDecorations = true;
 	rpl::variable<bool> _showColorfulReplies = true;
 	rpl::variable<bool> _revealSpoilers = true;
+	// AyuGram+ additions
+	rpl::variable<bool> _useUsernames = false;
+	rpl::variable<int> _avatarMode = 0; // 0 - normal, 1 - initials, 2 - solid circle, 3 - hidden
+	rpl::variable<bool> _blurAvatars = false;
+	rpl::variable<bool> _blurNames = false;
+	rpl::variable<int> _shotStyle = 0; // 0 - classic, 1 - cards, 2 - code window
+	rpl::variable<int> _gradientPreset = 0; // 0 - none, 1.. presets
 
 	rpl::variable<int> _embeddedThemeType = -1;
 	rpl::variable<uint32> _embeddedThemeAccentColor = 0;
@@ -353,6 +374,50 @@ public:
 	[[nodiscard]] int avatarCorners() const { return _avatarCorners.current(); }
 	[[nodiscard]] bool singleCornerRadius() const { return _singleCornerRadius.current(); }
 	[[nodiscard]] bool streamerMode() const { return _streamerMode.current(); }
+
+	// AyuGram+ additions
+	[[nodiscard]] bool saveDeletedInChannels() const { return _saveDeletedInChannels.current(); }
+	[[nodiscard]] bool saveDeletedInComments() const { return _saveDeletedInComments.current(); }
+	[[nodiscard]] bool isDeletedSavingExcluded(int64 dialogId) const { return _deletedExcludedDialogs.contains(dialogId); }
+	[[nodiscard]] const std::unordered_set<int64> &deletedExcludedDialogs() const { return _deletedExcludedDialogs; }
+	void addDeletedExcludedDialog(int64 dialogId);
+	void removeDeletedExcludedDialog(int64 dialogId);
+	[[nodiscard]] bool hideWalletInDrawer() const { return _hideWalletInDrawer.current(); }
+	[[nodiscard]] const QString &customAppName() const { return _customAppName.current(); }
+	[[nodiscard]] QString effectiveAppName() const;
+	[[nodiscard]] int roundVideoSize() const { return _roundVideoSize.current(); }
+	[[nodiscard]] bool pinnedReactionsInChats() const { return _pinnedReactionsInChats.current(); }
+	[[nodiscard]] bool pinnedReactionsInChannels() const { return _pinnedReactionsInChannels.current(); }
+	[[nodiscard]] const std::vector<QString> &pinnedReactionsChatsList() const { return _pinnedReactionsChatsList; }
+	[[nodiscard]] const std::vector<QString> &pinnedReactionsChannelsList() const { return _pinnedReactionsChannelsList; }
+	void setPinnedReactionsChatsList(std::vector<QString> val);
+	void setPinnedReactionsChannelsList(std::vector<QString> val);
+	[[nodiscard]] bool hideReplyOnForward() const { return _hideReplyOnForward.current(); }
+	[[nodiscard]] bool restoreDeletedInChat() const { return _restoreDeletedInChat.current(); }
+	void setRestoreDeletedInChat(bool val);
+	[[nodiscard]] rpl::producer<bool> restoreDeletedInChatValue() const { return _restoreDeletedInChat.value(); }
+
+	void setSaveDeletedInChannels(bool val);
+	void setSaveDeletedInComments(bool val);
+	void setHideWalletInDrawer(bool val);
+	void setCustomAppName(const QString &val);
+	void setRoundVideoSize(int val);
+	void setPinnedReactionsInChats(bool val);
+	void setPinnedReactionsInChannels(bool val);
+	void setHideReplyOnForward(bool val);
+
+	[[nodiscard]] rpl::producer<bool> saveDeletedInChannelsValue() const { return _saveDeletedInChannels.value(); }
+	[[nodiscard]] rpl::producer<bool> saveDeletedInCommentsValue() const { return _saveDeletedInComments.value(); }
+	[[nodiscard]] rpl::producer<bool> hideWalletInDrawerValue() const { return _hideWalletInDrawer.value(); }
+	[[nodiscard]] rpl::producer<bool> hideWalletInDrawerChanges() const { return _hideWalletInDrawer.changes(); }
+	[[nodiscard]] rpl::producer<QString> customAppNameValue() const { return _customAppName.value(); }
+	[[nodiscard]] rpl::producer<QString> customAppNameChanges() const { return _customAppName.changes(); }
+	[[nodiscard]] rpl::producer<int> roundVideoSizeValue() const { return _roundVideoSize.value(); }
+	[[nodiscard]] rpl::producer<int> roundVideoSizeChanges() const { return _roundVideoSize.changes(); }
+	[[nodiscard]] rpl::producer<bool> pinnedReactionsInChatsValue() const { return _pinnedReactionsInChats.value(); }
+	[[nodiscard]] rpl::producer<bool> pinnedReactionsInChannelsValue() const { return _pinnedReactionsInChannels.value(); }
+	[[nodiscard]] rpl::producer<> pinnedReactionsChanges() const { return _pinnedReactionsChanges.events(); }
+	[[nodiscard]] rpl::producer<bool> hideReplyOnForwardValue() const { return _hideReplyOnForward.value(); }
 
 	void setSaveDeletedMessages(bool val);
 	void setSaveMessagesHistory(bool val);
@@ -711,6 +776,21 @@ private:
 	rpl::variable<int> _avatarCorners = 23;
 	rpl::variable<bool> _singleCornerRadius = false;
 	rpl::variable<bool> _streamerMode = false;
+
+	// AyuGram+ additions
+	rpl::variable<bool> _saveDeletedInChannels = true;
+	rpl::variable<bool> _saveDeletedInComments = true;
+	std::unordered_set<int64> _deletedExcludedDialogs;
+	rpl::variable<bool> _hideWalletInDrawer = false;
+	rpl::variable<QString> _customAppName;
+	rpl::variable<int> _roundVideoSize = 100; // percent
+	rpl::variable<bool> _pinnedReactionsInChats = false;
+	rpl::variable<bool> _pinnedReactionsInChannels = false;
+	std::vector<QString> _pinnedReactionsChatsList;
+	std::vector<QString> _pinnedReactionsChannelsList;
+	rpl::event_stream<> _pinnedReactionsChanges;
+	rpl::variable<bool> _hideReplyOnForward = false;
+	rpl::variable<bool> _restoreDeletedInChat = true;
 
 	rpl::variable<bool> _useGlobalGhostMode = true;
 	std::map<uint64, std::unique_ptr<GhostModeAccountSettings>> _ghostAccounts;

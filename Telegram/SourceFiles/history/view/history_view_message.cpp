@@ -2670,11 +2670,27 @@ void Message::paintFromName(
 		nameLinkHandler,
 		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
 		trect.topLeft());
-	nameText->draw(p, {
-		.position = { availableLeft, trect.top() },
-		.availableWidth = nameAvailableWidth,
-		.elisionLines = 1,
-	});
+	if (AyuFeatures::MessageShot::ShouldBlurNames()) {
+		// AyuGram+: blurred sender name in message shots
+		AyuFeatures::MessageShot::PaintBlurred(
+			p,
+			QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
+			[&](QPainter &q) {
+				q.setFont(st::msgNameFont);
+				q.setPen(nameFg);
+				nameText->draw(q, {
+					.position = { 0, 0 },
+					.availableWidth = nameAvailableWidth,
+					.elisionLines = 1,
+				});
+			});
+	} else {
+		nameText->draw(p, {
+			.position = { availableLeft, trect.top() },
+			.availableWidth = nameAvailableWidth,
+			.elisionLines = 1,
+		});
+	}
 	const auto skipWidth = nameWidth
 		+ (_fromNameStatus && !hidePremiumStatuses
 			? (st::dialogsPremiumIcon.icon.width()
@@ -5584,7 +5600,7 @@ void Message::validateFromNameText(PeerData *from) const {
 		_fromNameVersion = version;
 		_fromName.setText(
 			st::msgNameStyle,
-			from->name(),
+			AyuFeatures::MessageShot::DisplayNameFor(from), // AyuGram+: usernames in shots
 			Ui::NameTextOptions());
 	}
 	if (from->isPremium()

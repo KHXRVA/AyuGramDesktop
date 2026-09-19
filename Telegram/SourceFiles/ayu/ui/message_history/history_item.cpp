@@ -7,7 +7,9 @@
 #include "ayu/ui/message_history/history_item.h"
 
 #include "history/history_item.h"
+#include "lang_auto.h"
 #include "api/api_text_entities.h"
+#include "ayu/data/deleted_media.h"
 #include "ayu/data/entities.h"
 #include "ayu/ui/message_history/history_inner.h"
 #include "ayu/utils/ayu_mapper.h"
@@ -118,6 +120,40 @@ void GenerateItems(
 	auto textAndEntities = Ui::Text::WithEntities(text);
 	const auto entities = AyuMapper::deserializeTextWithEntities(message.textEntities);
 	textAndEntities.entities = Api::EntitiesFromMTP(&history->session(), entities.v);
+
+	// AyuGram+: restore saved media as a local photo / document message.
+	const auto makeFields = [&] {
+		base::flags<MessageFlag> flags = MessageFlag::AdminLogEntry;
+		if (from) {
+			flags |= MessageFlag::HasFromId;
+		} else {
+			flags |= MessageFlag::HasPostAuthor;
+		}
+		if (!message.postAuthor.empty()) {
+			flags |= MessageFlag::HasPostAuthor;
+		}
+		return HistoryItemCommonFields{
+			.id = history->nextNonHistoryEntryId(),
+			.flags = flags,
+			.from = from ? from->id : 0,
+			.date = date,
+			.postAuthor = !message.postAuthor.empty()
+				? QString::fromStdString(message.postAuthor)
+				: from
+				? QString()
+				: QString("unknown user: %1").arg(message.fromId),
+		};
+	};
+	if (const auto photo = AyuMessages::restorePhoto(&history->session(), message)) {
+		addPart(history->makeMessage(makeFields(), photo, textAndEntities));
+		return;
+	} else if (const auto document = AyuMessages::restoreDocument(&history->session(), message)) {
+		addPart(history->makeMessage(makeFields(), document, textAndEntities));
+		return;
+	} else if (message.documentType != 0 && textAndEntities.text.isEmpty()) {
+		textAndEntities = Ui::Text::WithEntities(
+			QString::fromUtf8("ð ") + tr::ayu_DeletedMediaUnavailable(tr::now));
+	}
 	addSimpleTextMessage(std::move(textAndEntities));
 }
 

@@ -181,6 +181,8 @@ set(ayugram_files
         ayu/ui/message_history/history_section.h
         ayu/ui/boxes/edit_mark_box.cpp
         ayu/ui/boxes/edit_mark_box.h
+        ayu/ui/boxes/pinned_reactions_box.cpp
+        ayu/ui/boxes/pinned_reactions_box.h
         ayu/ui/boxes/font_selector.cpp
         ayu/ui/boxes/font_selector.h
         ayu/ui/boxes/import_filters_box.cpp
@@ -249,6 +251,10 @@ set(ayugram_files
         ayu/features/filters/filters_utils.h
         ayu/data/messages_storage.cpp
         ayu/data/messages_storage.h
+        ayu/data/deleted_media.cpp
+        ayu/data/deleted_media.h
+        ayu/data/deleted_injector.cpp
+        ayu/data/deleted_injector.h
         ayu/data/entities.h
         ayu/data/ayu_database.cpp
         ayu/data/ayu_database.h

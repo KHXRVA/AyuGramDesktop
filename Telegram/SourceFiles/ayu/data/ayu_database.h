@@ -30,6 +30,9 @@ std::vector<DeletedMessage> getDeletedMessages(ID userId, ID dialogId, ID topicI
 bool hasDeletedMessages(ID userId, ID dialogId, ID topicId);
 void removeDeletedMessage(ID userId, ID dialogId, ID messageId);
 void clearDeletedMessages(ID userId, ID dialogId, ID topicId);
+std::vector<DeletedMessage> getDeletedMessagesByDate(ID userId, ID dialogId, ID topicId, int dateFrom, int dateTill, int totalLimit);
+int countDeletedMessages(ID userId, ID dialogId);
+std::vector<ID> getDialogsWithDeletedMessages(ID userId);
 
 std::vector<RegexFilter> getAllRegexFilters();
 RegexFilter getById(std::vector<char> id);

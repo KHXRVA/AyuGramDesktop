@@ -33,6 +33,7 @@
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "history/history.h"
+#include "history/history_item.h"
 #include "history/history_item_components.h"
 #include "history/view/history_view_context_menu.h"
 #include "history/view/history_view_element.h"
@@ -42,6 +43,7 @@
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "ui/boxes/confirm_box.h"
+#include "ui/toast/toast.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "window/window_peer_menu.h"
@@ -220,6 +222,128 @@ void DeleteMyMessagesAfterConfirm(not_null<PeerData*> peer) {
 	(*requestNext)(MsgId(0));
 }
 
+// AyuGram+: remove all my reactions in a chat by walking its history.
+void RemoveMyReactionsAfterConfirm(not_null<PeerData*> peer) {
+	const auto session = &peer->session();
+	auto collected = std::make_shared<std::vector<MsgId>>();
+	const auto removeNext = std::make_shared<Fn<void(int)>>();
+	const auto requestNext = std::make_shared<Fn<void(MsgId)>>();
+	const auto lastToast = std::make_shared<crl::time>(0);
+
+	const auto progress = [=](int done) {
+		const auto now = crl::now();
+		if (now - *lastToast < 2000) {
+			return;
+		}
+		*lastToast = now;
+		Ui::Toast::Show(tr::ayu_RemoveMyReactionsProgress(tr::now, lt_count, done));
+	};
+
+	*removeNext = [=](int index) {
+		if (index >= int(collected->size())) {
+			Ui::Toast::Show(tr::ayu_RemoveMyReactionsDone(tr::now, lt_count, int(collected->size())));
+			return;
+		}
+		const auto msgId = (*collected)[index];
+		const auto next = [=] {
+			progress(index + 1);
+			const auto delay = crl::time(350 + base::RandomValue<int>() % 300);
+			base::call_delayed(delay, [=] { (*removeNext)(index + 1); });
+		};
+		session->api().request(MTPmessages_SendReaction(
+			MTP_flags(0),
+			peer->input(),
+			MTP_int(msgId.bare),
+			MTPVector<MTPReaction>()
+		)).done([=](const MTPUpdates &updates) {
+			session->api().applyUpdates(updates);
+			next();
+		}).fail([=](const MTP::Error &error) {
+			const auto type = error.type();
+			if (type.startsWith(u"FLOOD_WAIT_"_q)
+				|| type.startsWith(u"FLOOD_PREMIUM_WAIT_"_q)) {
+				const auto underscore = type.lastIndexOf('_');
+				const auto seconds = (underscore >= 0)
+					? type.mid(underscore + 1).toInt()
+					: 0;
+				base::call_delayed(
+					crl::time(std::max(seconds, 1) * 1000),
+					[=] { (*removeNext)(index); });
+				return;
+			}
+			DEBUG_LOG(("Remove reaction failed for %1: %2").arg(msgId.bare).arg(type));
+			next();
+		}).handleFloodErrors().send();
+	};
+
+	*requestNext = [=](MsgId from) {
+		session->api().request(MTPmessages_GetHistory(
+			peer->input(),
+			MTP_int(from.bare),
+			MTP_int(0), // offset_date
+			MTP_int(0), // add_offset
+			MTP_int(100),
+			MTP_int(0), // max_id
+			MTP_int(0), // min_id
+			MTP_long(0)
+		)).done([=](const Api::HistoryRequestResult &result) {
+			const auto parsed = Api::ParseHistoryResult(
+				peer,
+				from,
+				Data::LoadDirection::Before,
+				result);
+			auto minId = MsgId();
+			for (const auto &id : parsed.messageIds) {
+				if (!minId || id < minId) {
+					minId = id;
+				}
+				if (const auto item = session->data().message(peer->id, id)) {
+					if (!item->chosenReactions().empty()) {
+						collected->push_back(id);
+					}
+				}
+			}
+			if (parsed.messageIds.size() >= 100 && minId) {
+				const auto delay = crl::time(200 + base::RandomValue<int>() % 200);
+				base::call_delayed(delay, [=] { (*requestNext)(minId - MsgId(1)); });
+			} else {
+				DEBUG_LOG(("Found %1 messages with my reactions").arg(collected->size()));
+				(*removeNext)(0);
+			}
+		}).fail([=](const MTP::Error &error) {
+			const auto type = error.type();
+			if (type.startsWith(u"FLOOD_WAIT_"_q)) {
+				const auto seconds = type.mid(type.lastIndexOf('_') + 1).toInt();
+				base::call_delayed(
+					crl::time(std::max(seconds, 1) * 1000),
+					[=] { (*requestNext)(from); });
+				return;
+			}
+			DEBUG_LOG(("History fetch for reactions failed: %1").arg(type));
+			(*removeNext)(0);
+		}).send();
+	};
+
+	(*requestNext)(MsgId(0));
+}
+
+Fn<void()> RemoveMyReactionsHandler(not_null<Window::SessionController*> controller, not_null<PeerData*> peer) {
+	return [=] {
+		if (!controller->showFrozenError()) {
+			controller->show(Ui::MakeConfirmBox({
+				.text = tr::ayu_RemoveMyReactionsText(tr::now),
+				.confirmed = [=](Fn<void()> &&close) {
+					RemoveMyReactionsAfterConfirm(peer);
+					close();
+				},
+				.confirmText = tr::ayu_RemoveMyReactionsAction(),
+				.cancelText = tr::lng_cancel(),
+				.confirmStyle = &st::attentionBoxButton,
+			}));
+		}
+	};
+}
+
 Fn<void()> DeleteMyMessagesHandler(not_null<Window::SessionController*> controller, not_null<PeerData*> peer) {
 	return [=]
 	{
@@ -313,6 +437,21 @@ void AddAyuGramActions(PeerData *peerData,
 					},
 					&st::menuIconArchive);
 				if (showFilters || filteredToggleShown.value_or(false)) addAction({ .isSeparator = true });
+				// AyuGram+: per-chat exclusion from saving deleted messages
+				const auto dialogId = getDialogIdFromPeer(peerData);
+				const auto excluded = AyuSettings::getInstance().isDeletedSavingExcluded(dialogId);
+				addAction(
+					excluded
+						? tr::ayu_ContextIncludeDeleted(tr::now)
+						: tr::ayu_ContextExcludeDeleted(tr::now),
+					[=] {
+						if (excluded) {
+							AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
+						} else {
+							AyuSettings::getInstance().addDeletedExcludedDialog(dialogId);
+						}
+					},
+					excluded ? &st::menuIconCaptionShow : &st::menuIconCaptionHide);
 				addAction({
 					.text = tr::ayu_ClearDeletedMenuText(tr::now),
 					.handler = ClearDeletedMessagesHandler(sessionController, peerData, topicId),
@@ -484,6 +623,11 @@ void AddDeleteOwnMessagesAction(PeerData *peerData,
 		tr::ayu_DeleteOwnMessages(tr::now),
 		DeleteMyMessagesHandler(sessionController, peerData),
 		&st::menuIconTTL);
+	// AyuGram+
+	addCallback(
+		tr::ayu_RemoveMyReactions(tr::now),
+		RemoveMyReactionsHandler(sessionController, peerData),
+		&st::menuIconRemove);
 }
 
 void AddHistoryAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {

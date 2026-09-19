@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_main_menu_helpers.h"
 
+#include "ayu/ayu_settings.h"
+
 #include "apiwrap.h"
 #include "base/platform/base_platform_info.h"
 #include "data/data_channel.h"
@@ -291,14 +293,19 @@ void SetupMenuBots(
 
 	rpl::single(
 		rpl::empty
-	) | rpl::then(
-		bots->attachBotsUpdates()
-	) | rpl::on_next([=] {
+	) | rpl::then(rpl::merge(
+		bots->attachBotsUpdates(),
+		AyuSettings::getInstance().hideWalletInDrawerChanges() | rpl::to_empty
+	)) | rpl::on_next([=] {
 		const auto width = container->widthNoMargins();
 		wrap->clear();
 		for (const auto &bot : bots->attachBots()) {
 			const auto user = bot.user;
 			if (!bot.inMainMenu || !bot.media) {
+				continue;
+			} else if (AyuSettings::getInstance().hideWalletInDrawer()
+				&& user->username().compare(u"wallet"_q, Qt::CaseInsensitive) == 0) {
+				// AyuGram+: hide the Wallet bot from the drawer
 				continue;
 			} else if (const auto media = bot.media; !media->loaded()) {
 				if (!*iconLoadLifetime) {

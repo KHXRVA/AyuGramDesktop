@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "intro/intro_widget.h"
 
+#include "ayu/ayu_settings.h"
+
 #include "intro/intro_phone.h"
 #include "intro/intro_qr.h"
 #include "intro/intro_code.h"
@@ -179,7 +181,7 @@ Widget::Widget(
 		}, lifetime());
 	}
 
-	_footer->setText(QString("AyuGram Desktop v%1").arg(currentVersionText()));
+	_footer->setText(QString("%1 Desktop v%2").arg(AyuSettings::getInstance().effectiveAppName(), currentVersionText()));
 }
 
 rpl::producer<> Widget::showSettingsRequested() const {

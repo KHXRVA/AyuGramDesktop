@@ -320,6 +320,38 @@ PossibleItemReactionsRef LookupPossibleReactions(
 			}
 		}
 		toFront(reactions->favoriteId());
+		// AyuGram+: pinned reactions go first (per chat type).
+		if (!limited) {
+			const auto &ayu = AyuSettings::getInstance();
+			const auto channel = peer->isBroadcast();
+			const auto enabled = channel
+				? ayu.pinnedReactionsInChannels()
+				: ayu.pinnedReactionsInChats();
+			if (enabled) {
+				const auto &pinned = channel
+					? ayu.pinnedReactionsChannelsList()
+					: ayu.pinnedReactionsChatsList();
+				for (const auto &entry : pinned | ranges::views::reverse) {
+					const auto id = entry.startsWith(u"custom:"_q)
+						? ReactionId{ DocumentId(entry.mid(7).toULongLong()) }
+						: ReactionId{ entry };
+					if (id.empty()) {
+						continue;
+					} else if (id.custom() && !result.customAllowed) {
+						continue;
+					} else if ((allowed.type == AllowedReactionsType::Some)
+						&& !ranges::contains(allowed.some, id)) {
+						continue;
+					}
+					if (!ranges::contains(result.recent, id, &Reaction::id)) {
+						if (const auto temp = reactions->lookupTemporary(id)) {
+							result.recent.insert(begin(result.recent), temp);
+						}
+					}
+					toFront(id);
+				}
+			}
+		}
 		if (paidInFront) {
 			toFront(ReactionId::Paid());
 		}

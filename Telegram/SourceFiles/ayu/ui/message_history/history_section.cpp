@@ -17,9 +17,11 @@
 #include "profile/profile_back_button.h"
 #include "styles/style_chat.h"
 #include "styles/style_chat_helpers.h"
+#include "styles/style_dialogs.h"
 #include "styles/style_info.h"
 #include "ui/effects/animations.h"
 #include "ui/ui_utility.h"
+#include "ui/boxes/calendar_box.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/controls/userpic_button.h"
 #include "ui/widgets/buttons.h"
@@ -43,6 +45,7 @@ public:
 
 	[[nodiscard]] rpl::producer<> searchCancelRequests() const;
 	[[nodiscard]] rpl::producer<QString> searchRequests() const;
+	[[nodiscard]] rpl::producer<QDate> jumpToDateRequests() const;
 
 	// When animating mode is enabled the content is hidden and the
 	// whole fixed bar acts like a back button.
@@ -75,6 +78,7 @@ private:
 	object_ptr<Ui::InputField> _field;
 	object_ptr<Profile::BackButton> _backButton;
 	object_ptr<Ui::IconButton> _search;
+	object_ptr<Ui::IconButton> _calendar;
 	object_ptr<Ui::CrossButton> _cancel;
 
 	Ui::Animations::Simple _searchShownAnimation;
@@ -85,6 +89,7 @@ private:
 
 	rpl::event_stream<> _searchCancelRequests;
 	rpl::event_stream<QString> _searchRequests;
+	rpl::event_stream<QDate> _jumpToDateRequests;
 };
 
 object_ptr<Window::SectionWidget> SectionMemento::createWidget(
@@ -110,11 +115,29 @@ FixedBar::FixedBar(
 , _field(this, st::defaultMultiSelectSearchField, tr::lng_dlg_filter())
 , _backButton(this)
 , _search(this, st::topBarSearch)
+, _calendar(this, st::dialogsCalendarTopBar)
 , _cancel(this, st::historyAdminLogCancelSearch)
 , _searchEnabled(searchEnabled) {
 	_backButton->moveToLeft(0, 0);
 	_backButton->setClickedCallback([=] { goBack(); });
 	_search->setClickedCallback([=] { showSearch(); });
+	// AyuGram+: jump to date in the deleted messages viewer
+	_calendar->setClickedCallback([=] {
+		const auto today = QDate::currentDate();
+		_controller->show(Box<Ui::CalendarBox>(Ui::CalendarBoxArgs{
+			.month = today,
+			.highlighted = today,
+			.callback = [=](const QDate &date, Fn<void()> close) {
+				_jumpToDateRequests.fire_copy(date);
+				close();
+			},
+			.minDate = QDate(2013, 8, 1),
+			.maxDate = today,
+		}));
+	});
+	if (!_searchEnabled) {
+		_calendar->hide();
+	}
 	_cancel->setClickedCallback([=] { cancelSearch(); });
 	_field->hide();
 	_field->cancelled() | rpl::on_next([=] {
@@ -215,6 +238,10 @@ rpl::producer<QString> FixedBar::searchRequests() const {
 	return _searchRequests.events();
 }
 
+rpl::producer<QDate> FixedBar::jumpToDateRequests() const {
+	return _jumpToDateRequests.events();
+}
+
 int FixedBar::resizeGetHeight(int newWidth) {
 	const auto offset = st::historySendRight + st::lineWidth;
 	const auto searchShownLeft = st::topBarArrowPadding.left();
@@ -230,6 +257,8 @@ int FixedBar::resizeGetHeight(int newWidth) {
 		searchShown);
 	if (_searchEnabled) {
 		_search->moveToLeft(searchCurrentLeft, 0);
+		_calendar->moveToLeft(searchHiddenLeft - _calendar->width(), 0);
+		_calendar->setVisible(!_searchShown);
 	}
 	_backButton->setOpacity(1. - searchShown);
 	_backButton->resizeToWidth(searchCurrentLeft);
@@ -305,6 +334,10 @@ Widget::Widget(
 	_fixedBar->searchRequests(
 	) | rpl::on_next([=](const QString &query) {
 		_inner->applySearch(query);
+	}, lifetime());
+	_fixedBar->jumpToDateRequests(
+	) | rpl::on_next([=](const QDate &date) {
+		_inner->jumpToDate(date);
 	}, lifetime());
 	_fixedBar->show();
 

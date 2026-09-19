@@ -295,6 +295,14 @@ void BuildDrawerElements(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 			.setter = &AyuSettings::setShowBotsInDrawer,
 			.icon = { &st::menuIconBot },
 		});
+		// AyuGram+: hide only the @wallet bot
+		ayu.addSettingToggle({
+			.id = u"ayu/hideWalletInDrawer"_q,
+			.title = tr::ayu_SettingsHideWalletInDrawer(),
+			.getter = &AyuSettings::hideWalletInDrawer,
+			.setter = &AyuSettings::setHideWalletInDrawer,
+			.icon = { &st::menuIconBot },
+		});
 	}
 
 	ayu.addSettingToggle({

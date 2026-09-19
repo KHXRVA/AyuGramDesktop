@@ -20,6 +20,8 @@
 #include "data/data_photo_media.h"
 #include "data/data_session.h"
 #include "dialogs/ui/dialogs_video_userpic.h"
+#include "ui/empty_userpic.h"
+#include "ui/image/image_prepare.h"
 #include "history/history.h"
 #include "history/history_inner_widget.h"
 #include "history/history_item.h"
@@ -203,6 +205,389 @@ QColor makeDefaultBackgroundColor() {
 	return st::boxBg->c.darker(110);
 }
 
+// AyuGram+ helpers.
+
+QString DisplayNameFor(not_null<PeerData*> peer) {
+	if (isTakingShot()
+		&& AyuSettings::getInstance().messageShotSettings().useUsernames()) {
+		const auto username = peer->username();
+		if (!username.isEmpty()) {
+			return QChar('@') + username;
+		}
+	}
+	return peer->name();
+}
+
+bool ShouldBlurNames() {
+	return isTakingShot()
+		&& AyuSettings::getInstance().messageShotSettings().blurNames();
+}
+
+QImage BlurImage(QImage image, int radius) {
+	if (image.isNull()) {
+		return image;
+	}
+	if (image.format() != QImage::Format_ARGB32_Premultiplied) {
+		image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+	}
+	return Images::BlurLargeImage(std::move(image), radius);
+}
+
+void PaintBlurred(
+		QPainter &p,
+		const QRect &rect,
+		Fn<void(QPainter&)> paint) {
+	if (rect.isEmpty()) {
+		return;
+	}
+	const auto ratio = style::DevicePixelRatio();
+	// Some extra room so the blur does not get clipped at the edges.
+	const auto extra = st::msgNameFont->height / 2;
+	auto image = QImage(
+		(rect.width() + extra * 2) * ratio,
+		(rect.height() + extra * 2) * ratio,
+		QImage::Format_ARGB32_Premultiplied);
+	image.setDevicePixelRatio(ratio);
+	image.fill(Qt::transparent);
+	{
+		auto q = QPainter(&image);
+		q.translate(extra, extra);
+		paint(q);
+	}
+	image = BlurImage(std::move(image), st::msgNameFont->height * ratio / 2);
+	p.drawImage(rect.topLeft() - QPoint(extra, extra), image);
+}
+
+int GradientPresetsCount() {
+	return 6;
+}
+
+QLinearGradient GradientPreset(int index, const QRect &rect) {
+	auto gradient = QLinearGradient(rect.topLeft(), rect.bottomRight());
+	switch (index) {
+	case 1: // Purple
+		gradient.setColorAt(0., QColor(0x8E, 0x2D, 0xE2));
+		gradient.setColorAt(1., QColor(0xE1, 0x00, 0xFF));
+		break;
+	case 2: // Ocean
+		gradient.setColorAt(0., QColor(0x21, 0x93, 0xB0));
+		gradient.setColorAt(1., QColor(0x6D, 0xD5, 0xED));
+		break;
+	case 3: // Sunset
+		gradient.setColorAt(0., QColor(0xFF, 0x51, 0x2F));
+		gradient.setColorAt(1., QColor(0xF0, 0x98, 0x19));
+		break;
+	case 4: // Mint
+		gradient.setColorAt(0., QColor(0x11, 0x99, 0x8E));
+		gradient.setColorAt(1., QColor(0x38, 0xEF, 0x7D));
+		break;
+	case 5: // Night
+		gradient.setColorAt(0., QColor(0x0F, 0x20, 0x27));
+		gradient.setColorAt(1., QColor(0x2C, 0x53, 0x64));
+		break;
+	case 6: // Peach
+		gradient.setColorAt(0., QColor(0xEE, 0x9C, 0xA7));
+		gradient.setColorAt(1., QColor(0xFF, 0xDD, 0xE1));
+		break;
+	default:
+		gradient.setColorAt(0., makeDefaultBackgroundColor());
+		gradient.setColorAt(1., makeDefaultBackgroundColor());
+		break;
+	}
+	return gradient;
+}
+
+namespace {
+
+constexpr auto kCardRadius = 16;
+constexpr auto kCardPadding = 10;
+constexpr auto kCardSpacing = 12;
+constexpr auto kOuterPadding = 32;
+constexpr auto kShadowRadius = 18;
+constexpr auto kCodeHeaderHeight = 38;
+constexpr auto kCodeDotRadius = 6;
+constexpr auto kCodeDotSpacing = 22;
+
+// One rendered message (or a run of attached messages from one sender).
+struct RenderedPart {
+	QImage image; // already trimmed
+	bool attachedToPrevious = false;
+};
+
+[[nodiscard]] QColor CardColor() {
+	return Window::Theme::IsNightMode()
+		? st::boxBg->c.lighter(130)
+		: st::boxBg->c;
+}
+
+[[nodiscard]] QImage MakeShadow(QSize size, int radius, int ratio) {
+	const auto grow = kShadowRadius * 2;
+	auto shadow = QImage(
+		(size.width() + grow) * ratio,
+		(size.height() + grow) * ratio,
+		QImage::Format_ARGB32_Premultiplied);
+	shadow.setDevicePixelRatio(ratio);
+	shadow.fill(Qt::transparent);
+	{
+		auto q = QPainter(&shadow);
+		auto hq = PainterHighQualityEnabler(q);
+		q.setPen(Qt::NoPen);
+		q.setBrush(QColor(0, 0, 0, 110));
+		q.drawRoundedRect(
+			QRect(kShadowRadius, kShadowRadius + 4, size.width(), size.height()),
+			radius,
+			radius);
+	}
+	return BlurImage(std::move(shadow), kShadowRadius * ratio / 2);
+}
+
+void PaintCard(
+		QPainter &p,
+		const QRect &rect,
+		int radius,
+		const QColor &color) {
+	const auto ratio = style::DevicePixelRatio();
+	const auto shadow = MakeShadow(rect.size(), radius, ratio);
+	p.drawImage(rect.topLeft() - QPoint(kShadowRadius, kShadowRadius), shadow);
+	auto hq = PainterHighQualityEnabler(p);
+	p.setPen(Qt::NoPen);
+	p.setBrush(color);
+	p.drawRoundedRect(rect, radius, radius);
+}
+
+void PaintBackground(QPainter &p, const QRect &rect, int gradientPreset) {
+	if (gradientPreset > 0) {
+		p.fillRect(rect, GradientPreset(gradientPreset, rect));
+	} else {
+		p.fillRect(rect, makeDefaultBackgroundColor());
+	}
+}
+
+[[nodiscard]] QImage ComposeClassic(
+		const std::vector<RenderedPart> &parts,
+		bool showBackground,
+		int gradientPreset) {
+	const auto ratio = style::DevicePixelRatio();
+	auto width = 0;
+	auto height = 0;
+	for (const auto &part : parts) {
+		width = std::max(width, int(part.image.width() / ratio));
+		height += part.image.height() / ratio;
+	}
+	if (!width || !height) {
+		return {};
+	}
+	auto stacked = QImage(width * ratio, height * ratio, QImage::Format_ARGB32_Premultiplied);
+	stacked.setDevicePixelRatio(ratio);
+	stacked.fill(Qt::transparent);
+	{
+		auto q = QPainter(&stacked);
+		auto y = 0;
+		for (const auto &part : parts) {
+			q.drawImage(0, y, part.image);
+			y += part.image.height() / ratio;
+		}
+	}
+	auto result = addPadding(stacked);
+	if (!showBackground) {
+		return result;
+	}
+	auto withBackground = QImage(result.size(), QImage::Format_ARGB32_Premultiplied);
+	withBackground.setDevicePixelRatio(ratio);
+	withBackground.fill(Qt::transparent);
+	{
+		auto q = QPainter(&withBackground);
+		PaintBackground(q, QRect(QPoint(), result.size() / ratio), gradientPreset);
+		q.drawImage(0, 0, result);
+	}
+	return withBackground;
+}
+
+[[nodiscard]] QImage ComposeCards(
+		const std::vector<RenderedPart> &parts,
+		int gradientPreset) {
+	const auto ratio = style::DevicePixelRatio();
+	// Group attached messages into one card.
+	struct Card {
+		std::vector<const RenderedPart*> parts;
+		int width = 0;
+		int height = 0;
+	};
+	auto cards = std::vector<Card>();
+	for (const auto &part : parts) {
+		if (cards.empty() || !part.attachedToPrevious) {
+			cards.push_back({});
+		}
+		auto &card = cards.back();
+		card.parts.push_back(&part);
+		card.width = std::max(card.width, int(part.image.width() / ratio));
+		card.height += part.image.height() / ratio;
+	}
+	auto contentWidth = 0;
+	auto contentHeight = 0;
+	for (const auto &card : cards) {
+		contentWidth = std::max(contentWidth, card.width + kCardPadding * 2);
+		contentHeight += card.height + kCardPadding * 2;
+	}
+	contentHeight += kCardSpacing * std::max(int(cards.size()) - 1, 0);
+	const auto totalWidth = contentWidth + kOuterPadding * 2;
+	const auto totalHeight = contentHeight + kOuterPadding * 2;
+	auto result = QImage(totalWidth * ratio, totalHeight * ratio, QImage::Format_ARGB32_Premultiplied);
+	result.setDevicePixelRatio(ratio);
+	result.fill(Qt::transparent);
+	auto q = QPainter(&result);
+	PaintBackground(q, QRect(0, 0, totalWidth, totalHeight), gradientPreset);
+	auto y = kOuterPadding;
+	for (const auto &card : cards) {
+		const auto rect = QRect(
+			kOuterPadding,
+			y,
+			contentWidth,
+			card.height + kCardPadding * 2);
+		PaintCard(q, rect, kCardRadius, CardColor());
+		auto partY = rect.y() + kCardPadding;
+		for (const auto part : card.parts) {
+			q.drawImage(rect.x() + kCardPadding, partY, part->image);
+			partY += part->image.height() / ratio;
+		}
+		y += rect.height() + kCardSpacing;
+	}
+	return result;
+}
+
+[[nodiscard]] QImage ComposeCodeWindow(
+		const std::vector<RenderedPart> &parts,
+		int gradientPreset) {
+	const auto ratio = style::DevicePixelRatio();
+	auto width = 0;
+	auto height = 0;
+	for (const auto &part : parts) {
+		width = std::max(width, int(part.image.width() / ratio));
+		height += part.image.height() / ratio;
+	}
+	const auto cardWidth = std::max(width, kCodeDotSpacing * 4) + kCardPadding * 2;
+	const auto cardHeight = height + kCardPadding * 2 + kCodeHeaderHeight;
+	const auto totalWidth = cardWidth + kOuterPadding * 2;
+	const auto totalHeight = cardHeight + kOuterPadding * 2;
+	auto result = QImage(totalWidth * ratio, totalHeight * ratio, QImage::Format_ARGB32_Premultiplied);
+	result.setDevicePixelRatio(ratio);
+	result.fill(Qt::transparent);
+	auto q = QPainter(&result);
+	PaintBackground(
+		q,
+		QRect(0, 0, totalWidth, totalHeight),
+		gradientPreset ? gradientPreset : 1);
+	const auto card = QRect(kOuterPadding, kOuterPadding, cardWidth, cardHeight);
+	PaintCard(q, card, kCardRadius, CardColor());
+	{
+		auto hq = PainterHighQualityEnabler(q);
+		q.setPen(Qt::NoPen);
+		const auto colors = { QColor(0xFF, 0x5F, 0x56), QColor(0xFF, 0xBD, 0x2E), QColor(0x27, 0xC9, 0x3F) };
+		auto x = card.x() + kCardPadding + kCodeDotRadius + 4;
+		const auto cy = card.y() + kCodeHeaderHeight / 2;
+		for (const auto &color : colors) {
+			q.setBrush(color);
+			q.drawEllipse(QPoint(x, cy), kCodeDotRadius, kCodeDotRadius);
+			x += kCodeDotSpacing;
+		}
+		// Thin separator under the header.
+		auto line = CardColor();
+		line = Window::Theme::IsNightMode() ? line.lighter(140) : line.darker(112);
+		q.fillRect(card.x(), card.y() + kCodeHeaderHeight - 1, card.width(), 1, line);
+	}
+	auto y = card.y() + kCodeHeaderHeight + kCardPadding;
+	for (const auto &part : parts) {
+		q.drawImage(card.x() + kCardPadding, y, part.image);
+		y += part.image.height() / ratio;
+	}
+	return result;
+}
+
+void PaintShotUserpic(
+		Painter &p,
+		not_null<HistoryItem*> message,
+		base::flat_map<not_null<PeerData*>, Ui::PeerUserpicView> &userpics,
+		int x,
+		int y,
+		int outerWidth,
+		int size,
+		bool paused) {
+	const auto &shot = AyuSettings::getInstance().messageShotSettings();
+	const auto mode = shot.avatarMode();
+	if (mode == 3) { // hidden
+		return;
+	}
+	const auto from = message->displayFrom();
+	const auto info = from ? nullptr : message->displayHiddenSenderInfo();
+	if (!from && !info) {
+		return;
+	}
+	const auto paintOriginal = [&](Painter &q, int px, int py) {
+		if (from) {
+			Dialogs::Ui::PaintUserpic(
+				q,
+				from,
+				nullptr,
+				userpics[from],
+				px,
+				py,
+				outerWidth,
+				size,
+				paused);
+		} else if (info->customUserpic.empty()) {
+			info->emptyUserpic.paintCircle(q, px, py, outerWidth, size);
+		}
+	};
+	if (mode == 1) { // initials
+		const auto name = from ? DisplayNameFor(from) : info->name;
+		const auto colorIndex = from
+			? from->colorIndex()
+			: Ui::EmptyUserpic::ColorIndex(0);
+		Ui::EmptyUserpic(
+			Ui::EmptyUserpic::UserpicColor(colorIndex),
+			name
+		).paintCircle(p, x, y, outerWidth, size);
+		return;
+	} else if (mode == 2) { // solid circle
+		auto hq = PainterHighQualityEnabler(p);
+		p.setPen(Qt::NoPen);
+		p.setBrush(Window::Theme::IsNightMode()
+			? QColor(0x4A, 0x4A, 0x4A)
+			: QColor(0xBD, 0xBD, 0xBD));
+		p.drawEllipse(QRect(x, y, size, size));
+		return;
+	}
+	if (!shot.blurAvatars()) {
+		paintOriginal(p, x, y);
+		return;
+	}
+	const auto ratio = style::DevicePixelRatio();
+	auto image = QImage(size * ratio, size * ratio, QImage::Format_ARGB32_Premultiplied);
+	image.setDevicePixelRatio(ratio);
+	image.fill(Qt::transparent);
+	{
+		auto q = Painter(&image);
+		paintOriginal(q, 0, 0);
+	}
+	image = BlurImage(std::move(image), size * ratio / 4);
+	// Keep the circle shape after blurring.
+	auto masked = QImage(size * ratio, size * ratio, QImage::Format_ARGB32_Premultiplied);
+	masked.setDevicePixelRatio(ratio);
+	masked.fill(Qt::transparent);
+	{
+		auto q = QPainter(&masked);
+		auto hq = PainterHighQualityEnabler(q);
+		q.setPen(Qt::NoPen);
+		q.setBrush(Qt::white);
+		q.drawEllipse(QRect(0, 0, size, size));
+		q.setCompositionMode(QPainter::CompositionMode_SourceIn);
+		q.drawImage(0, 0, image);
+	}
+	p.drawImage(x, y, masked);
+}
+
+} // namespace
+
 void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage&,bool)>& callback) {
 	const auto controller = config.controller;
 	const auto st = config.st;
@@ -290,120 +675,111 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 			}
 			preload->photos.push_back(std::move(media));
 		} else if (const auto document = message->media()->document()) {
-			if (document->hasThumbnail()) {
-				auto media = document->activeMediaView()
-					? document->activeMediaView()
-					: document->createMediaView();
-				if (!media->thumbnail()) {
-					document->loadThumbnail(origin);
-				}
-				preload->documents.push_back(std::move(media));
+			auto media = document->activeMediaView()
+				? document->activeMediaView()
+				: document->createMediaView();
+			if (document->hasThumbnail() && !media->thumbnail()) {
+				document->loadThumbnail(origin);
 			}
+			// Stickers are painted from the document itself, keep the
+			// media view alive and make sure the data is loaded so the
+			// sticker does not disappear when it is out of the viewport.
+			if (document->sticker() && !media->loaded()) {
+				document->save(origin, QString());
+			}
+			preload->documents.push_back(std::move(media));
 		}
 	}
 
-	const auto showBackground = AyuSettings::getInstance().messageShotSettings().showBackground();
+	const auto &shotSettings = AyuSettings::getInstance().messageShotSettings();
+	const auto showBackground = shotSettings.showBackground();
+	const auto shotStyle = shotSettings.shotStyle();
+	const auto gradientPreset = shotSettings.gradientPreset();
 	auto render = [=, messages = std::move(messages), delegate = std::move(delegate)](bool final)
 	{
 		takingShot = true;
 
 		// calculate the size of the image
-		int width = st::msgMaxWidth + (st::boxPadding.left() + st::boxPadding.right());
-		int height = 0;
+		const auto width = st::msgMaxWidth + (st::boxPadding.left() + st::boxPadding.right());
+		const auto ratio = style::DevicePixelRatio();
 
 		for (int i = 0; i < messages.size(); i++) {
 			const auto &message = messages[i];
 			const auto view = getView(message);
 
 			view->itemDataChanged(); // refresh reactions
-			height += view->resizeGetHeight(width);
+			view->resizeGetHeight(width);
 			if (AyuSettings::getInstance().messageShotSettings().revealSpoilers()) {
 				view->revealSpoilers();
 			}
 		}
 
-		width *= style::DevicePixelRatio();
-		height *= style::DevicePixelRatio();
-
-		// create the image
-		QImage image(width, height, QImage::Format_ARGB32_Premultiplied);
-		image.setDevicePixelRatio(style::DevicePixelRatio());
-		image.fill(Qt::transparent);
-
-		const auto viewport = QRect(0, 0, width, height);
-
 		base::flat_map<not_null<PeerData*>, Ui::PeerUserpicView> userpics;
-		base::flat_map<MsgId, Ui::PeerUserpicView> hiddenSenderUserpics;
 
-		Painter p(&image);
-
-		// draw the messages
-		int y = 0;
+		// draw every message into its own image
+		auto parts = std::vector<RenderedPart>();
+		parts.reserve(messages.size());
 		for (int i = 0; i < messages.size(); i++) {
 			const auto &message = messages[i];
 			const auto view = getView(message);
+			const auto height = view->height();
+			if (height <= 0) {
+				continue;
+			}
 
-			const auto displayUserpic = view->displayFromPhoto() || message->isPost();
+			QImage image(width * ratio, height * ratio, QImage::Format_ARGB32_Premultiplied);
+			image.setDevicePixelRatio(ratio);
+			image.fill(Qt::transparent);
 
-			const auto rect = QRect(0, 0, width, view->height());
-
+			const auto rect = QRect(0, 0, width, height);
 			auto context = controller->defaultChatTheme()->preparePaintContext(
 				st.get(),
-				viewport,
+				rect,
 				rect,
 				rect,
 				true);
 
-			p.translate(0, y);
-			view->draw(p, context);
-			p.translate(0, -y);
+			{
+				Painter p(&image);
+				view->draw(p, context);
 
-			if (displayUserpic) {
-				const auto picX = st::msgMargin.left();
-				const auto picY = y + view->height() - st::msgPhotoSize;
-
-				if (const auto from = message->displayFrom()) {
-					Dialogs::Ui::PaintUserpic(
+				const auto displayUserpic = view->displayFromPhoto() || message->isPost();
+				if (displayUserpic) {
+					PaintShotUserpic(
 						p,
-						from,
-						nullptr,
-						userpics[from],
-						picX,
-						picY,
+						message,
+						userpics,
+						st::msgMargin.left(),
+						height - st::msgPhotoSize,
 						width,
 						st::msgPhotoSize,
 						context.paused);
-				} else if (const auto info = message->displayHiddenSenderInfo()) {
-					if (info->customUserpic.empty()) {
-						info->emptyUserpic.paintCircle(
-							p,
-							picX,
-							picY,
-							width,
-							st::msgPhotoSize);
-					}
 				}
 			}
 
-			y += view->height();
+			auto trimmed = removeEmptySpaceAround(image);
+			if (trimmed.isNull()) {
+				continue;
+			}
+			trimmed.setDevicePixelRatio(ratio);
+			parts.push_back({
+				.image = std::move(trimmed),
+				.attachedToPrevious = (i > 0) && view->isAttachedToPrevious(),
+			});
 		}
 
 		takingShot = false;
 
-		auto result = addPadding(removeEmptySpaceAround(image));
-		if (!showBackground) {
-			callback(result, final);
+		if (parts.empty()) {
 			return;
 		}
 
-		auto newResult = QImage(result.size(), QImage::Format_ARGB32_Premultiplied);
-		newResult.setDevicePixelRatio(style::DevicePixelRatio());
-		newResult.fill(makeDefaultBackgroundColor());
-
-		Painter painter(&newResult);
-		painter.drawImage(0, 0, result);
-
-		callback(newResult, final);
+		auto result = (shotStyle == 1)
+			? ComposeCards(parts, gradientPreset)
+			: (shotStyle == 2)
+			? ComposeCodeWindow(parts, gradientPreset)
+			: ComposeClassic(parts, showBackground, gradientPreset);
+		callback(result, final);
 	};
 
 	if (!preload->documents.empty() || !preload->photos.empty()) {
@@ -420,6 +796,7 @@ void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage
 				}
 				for (const auto &media : preload->documents) {
 					if (media->owner()->thumbnailLoading()) return false;
+					if (media->owner()->sticker() && media->owner()->loading()) return false;
 				}
 				return true;
 			}

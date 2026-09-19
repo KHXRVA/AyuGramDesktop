@@ -23,6 +23,10 @@ auto storage = make_storage(
 			   column<DeletedMessage>(&DeletedMessage::dialogId),
 			   column<DeletedMessage>(&DeletedMessage::topicId),
 			   column<DeletedMessage>(&DeletedMessage::messageId)),
+	make_index("idx_deleted_message_userId_dialogId_date",
+			   column<DeletedMessage>(&DeletedMessage::userId),
+			   column<DeletedMessage>(&DeletedMessage::dialogId),
+			   column<DeletedMessage>(&DeletedMessage::date)),
 	make_index("idx_edited_message_userId_dialogId_messageId",
 			   column<EditedMessage>(&EditedMessage::userId),
 			   column<EditedMessage>(&EditedMessage::dialogId),
@@ -226,6 +230,13 @@ void moveCurrentDatabase() {
 
 void initialize() {
 	try {
+		// AyuGram+: WAL journal keeps writes cheap and readers unblocked.
+		storage.pragma.journal_mode(sqlite_orm::journal_mode::WAL);
+		storage.pragma.synchronous(1);
+	} catch (const std::exception &ex) {
+		LOG(("Database pragma setup failed: %1").arg(ex.what()));
+	}
+	try {
 		storage.sync_schema(true);
 
 		runMigrations(storage);
@@ -380,6 +391,50 @@ void clearDeletedMessages(ID userId, ID dialogId, ID topicId) {
 			)
 		);
 	} catch (std::exception &) {
+	}
+}
+
+std::vector<DeletedMessage> getDeletedMessagesByDate(ID userId, ID dialogId, ID topicId, int dateFrom, int dateTill, int totalLimit) {
+	try {
+		return storage.get_all<DeletedMessage>(
+			where(
+				column<DeletedMessage>(&DeletedMessage::userId) == userId and
+				column<DeletedMessage>(&DeletedMessage::dialogId) == dialogId and
+				(column<DeletedMessage>(&DeletedMessage::topicId) == topicId or topicId == 0) and
+				(column<DeletedMessage>(&DeletedMessage::date) >= dateFrom or dateFrom == 0) and
+				(column<DeletedMessage>(&DeletedMessage::date) < dateTill or dateTill == 0)
+			),
+			order_by(column<DeletedMessage>(&DeletedMessage::messageId)).desc(),
+			limit(totalLimit)
+		);
+	} catch (std::exception &ex) {
+		LOG(("Failed to get deleted messages by date: %1").arg(ex.what()));
+		return {};
+	}
+}
+
+std::vector<ID> getDialogsWithDeletedMessages(ID userId) {
+	try {
+		return storage.select(
+			distinct(column<DeletedMessage>(&DeletedMessage::dialogId)),
+			where(column<DeletedMessage>(&DeletedMessage::userId) == userId)
+		);
+	} catch (std::exception &ex) {
+		LOG(("Failed to list dialogs with deleted messages: %1").arg(ex.what()));
+		return {};
+	}
+}
+
+int countDeletedMessages(ID userId, ID dialogId) {
+	try {
+		return storage.count<DeletedMessage>(
+			where(
+				column<DeletedMessage>(&DeletedMessage::userId) == userId and
+				column<DeletedMessage>(&DeletedMessage::dialogId) == dialogId
+			)
+		);
+	} catch (std::exception &) {
+		return 0;
 	}
 }
 

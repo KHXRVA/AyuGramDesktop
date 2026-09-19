@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/main_window.h"
 
+#include "ayu/ayu_settings.h"
+
 #include "api/api_updates.h"
 #include "storage/localstorage.h"
 #include "platform/platform_specific.h"
@@ -429,6 +431,12 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 		updateTitle();
 		unreadCounterChangedHook();
 		Core::App().tray().updateIconCounters();
+	}, lifetime());
+
+	// AyuGram+: custom app name in the window title
+	AyuSettings::getInstance().customAppNameChanges(
+	) | rpl::on_next([=] {
+		updateTitle();
 	}, lifetime());
 
 	Core::App().settings().workModeChanges(
@@ -921,7 +929,7 @@ void MainWindow::updateTitle() {
 		: Dialogs::Key();
 	const auto thread = key ? key.thread() : nullptr;
 	if (!thread) {
-		setTitle((user.isEmpty() ? u"AyuGram"_q : user) + added + suffix);
+		setTitle((user.isEmpty() ? AyuSettings::getInstance().effectiveAppName() : user) + added + suffix);
 		return;
 	}
 	const auto history = thread->owningHistory();

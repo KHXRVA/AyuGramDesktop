@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtWidgets/QApplication>
 
 // AyuGram includes
+#include "ayu/ayu_settings.h"
 #include "ayu/features/message_shot/message_shot.h"
 
 
@@ -374,11 +375,21 @@ QSize Gif::countThumbSize(int &inOutWidthMax) const {
 		} else if (_data->isVideoFile()) {
 			return st::maxMediaSize;
 		} else if (_data->isVideoMessage()) {
-			return st::maxVideoMessageSize;
+			// AyuGram+: scalable round video messages
+			return st::maxVideoMessageSize
+				* AyuSettings::getInstance().roundVideoSize() / 100;
 		}
 		return st::maxGifSize;
 	}();
-	const auto size = style::ConvertScale(videoSize());
+	auto size = style::ConvertScale(videoSize());
+	if (_data->isVideoMessage() && !hostedInstantView) {
+		const auto percent = AyuSettings::getInstance().roundVideoSize();
+		if (percent > 100) {
+			size = QSize(
+				size.width() * percent / 100,
+				size.height() * percent / 100);
+		}
+	}
 	if (hostedInstantView) {
 		inOutWidthMax = std::max(inOutWidthMax, 1);
 	} else {
@@ -410,6 +421,13 @@ QSize Gif::countOptimalSize() {
 			: st::minPhotoSize),
 		maxMediaWidth);
 	auto thumbMaxWidth = st::msgMaxWidth;
+	if (_data->isVideoMessage() && !hostedInstantView) {
+		// AyuGram+: let big round videos exceed the usual bubble width
+		accumulate_max(
+			thumbMaxWidth,
+			st::maxVideoMessageSize
+				* AyuSettings::getInstance().roundVideoSize() / 100);
+	}
 	const auto scaled = countThumbSize(thumbMaxWidth);
 	auto maxWidth = std::min(
 		std::max(scaled.width(), minWidth),

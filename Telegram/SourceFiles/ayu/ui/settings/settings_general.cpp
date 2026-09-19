@@ -11,6 +11,7 @@
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
+#include "ayu/ui/boxes/edit_mark_box.h"
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
 #include "lang/lang_text_entity.h"
@@ -179,6 +180,35 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_DisableOpenLinkWarning(),
 		.getter = &AyuSettings::disableOpenLinkWarning,
 		.setter = &AyuSettings::setDisableOpenLinkWarning,
+	});
+
+	// AyuGram+: custom app name / forward without replies
+	builder.addButton({
+		.id = u"ayu/customAppName"_q,
+		.title = tr::ayu_SettingsCustomAppName(),
+		.st = &st::settingsButtonNoIcon,
+		.label = AyuSettings::getInstance().customAppNameValue(
+		) | rpl::map([](const QString &v) {
+			return v.isEmpty() ? tr::ayu_SettingsCustomAppNamePlaceholder(tr::now) : v;
+		}),
+		.onClick = [=] {
+			auto box = Box<EditMarkBox>(
+				tr::ayu_SettingsCustomAppName(),
+				settings->customAppName(),
+				QString(),
+				[=](const QString &value) {
+					AyuSettings::getInstance().setCustomAppName(value);
+				});
+			Ui::show(std::move(box));
+		},
+	});
+	builder.addDividerText(tr::ayu_SettingsCustomAppNameHint());
+	builder.addSkip();
+	ayu.addSettingToggle({
+		.id = u"ayu/hideReplyOnForward"_q,
+		.title = tr::ayu_SettingsHideReplyOnForward(),
+		.getter = &AyuSettings::hideReplyOnForward,
+		.setter = &AyuSettings::setHideReplyOnForward,
 	});
 
 	ayu.addCollapsibleToggle({

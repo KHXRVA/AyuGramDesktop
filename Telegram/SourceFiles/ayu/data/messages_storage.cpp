@@ -7,9 +7,11 @@
 #include "ayu/data/messages_storage.h"
 
 #include "ayu/data/ayu_database.h"
+#include "ayu/data/deleted_media.h"
 #include "ayu/utils/ayu_mapper.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "base/unixtime.h"
+#include "data/data_channel.h"
 #include "data/data_forum_topic.h"
 #include "data/data_session.h"
 #include "history/history.h"
@@ -74,14 +76,8 @@ void map(not_null<HistoryItem*> item, AyuMessageBase &message) {
 	message.text = serializedText.first;
 	message.textEntities = serializedText.second;
 
-	// todo: implement mapping
-	message.mediaPath = "/";
-	// message.hqThumbPath
-	message.documentType = 0; // document type none
-	// message.documentSerialized
-	// message.thumbsSerialized
-	// message.documentAttributesSerialized
-	// message.mimeType
+	// AyuGram+: media is copied to tdata/ayu_media when available locally
+	saveMediaForMessage(item, message);
 }
 
 void addEditedMessage(not_null<HistoryItem *> item) {
@@ -115,7 +111,8 @@ void addDeletedMessage(not_null<HistoryItem*> item) {
 	DeletedMessage message;
 	map(item, message);
 
-	if (message.text.empty()) {
+	const auto hasMedia = message.documentType != 0;
+	if (message.text.empty() && !hasMedia) {
 		return;
 	}
 
@@ -137,12 +134,61 @@ bool hasDeletedMessages(not_null<PeerData*> peer, ID topicId) {
 void removeDeletedMessage(not_null<HistoryItem*> item) {
 	const auto peer = item->history()->peer;
 	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
-	AyuDatabase::removeDeletedMessage(userId, getDialogIdFromPeer(peer), item->id.bare);
+	const auto dialogId = getDialogIdFromPeer(peer);
+	for (const auto &stored : AyuDatabase::getDeletedMessages(userId, dialogId, 0, item->id.bare - 1, item->id.bare + 1, 4, {})) {
+		if (stored.messageId == item->id.bare) {
+			removeSavedMedia(stored);
+		}
+	}
+	AyuDatabase::removeDeletedMessage(userId, dialogId, item->id.bare);
 }
 
 void clearDeletedMessages(not_null<PeerData*> peer, ID topicId) {
 	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
-	AyuDatabase::clearDeletedMessages(userId, getDialogIdFromPeer(peer), topicId);
+	const auto dialogId = getDialogIdFromPeer(peer);
+	if (topicId == 0) {
+		removeSavedMediaForDialog(userId, dialogId);
+	}
+	AyuDatabase::clearDeletedMessages(userId, dialogId, topicId);
+}
+
+std::vector<AyuMessageBase> getDeletedMessagesByDate(
+		not_null<PeerData*> peer,
+		ID topicId,
+		int dateFrom,
+		int dateTill,
+		int totalLimit) {
+	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
+	return convertToBase(AyuDatabase::getDeletedMessagesByDate(
+		userId,
+		getDialogIdFromPeer(peer),
+		topicId,
+		dateFrom,
+		dateTill,
+		totalLimit));
+}
+
+int clearDeletedMessagesInChannels(not_null<Main::Session*> session) {
+	const ID userId = session->userId().bare & PeerId::kChatTypeMask;
+	auto cleared = 0;
+	for (const auto dialogId : AyuDatabase::getDialogsWithDeletedMessages(userId)) {
+		if (dialogId >= 0) {
+			continue;
+		}
+		const auto channel = session->data().channelLoaded(ChannelId(-dialogId));
+		if (!channel || !channel->isBroadcast()) {
+			continue;
+		}
+		removeSavedMediaForDialog(userId, dialogId);
+		AyuDatabase::clearDeletedMessages(userId, dialogId, 0);
+		++cleared;
+	}
+	return cleared;
+}
+
+int countDeletedMessages(not_null<PeerData*> peer) {
+	const ID userId = peer->session().userId().bare & PeerId::kChatTypeMask;
+	return AyuDatabase::countDeletedMessages(userId, getDialogIdFromPeer(peer));
 }
 
 }

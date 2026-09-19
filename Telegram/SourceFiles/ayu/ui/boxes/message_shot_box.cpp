@@ -25,6 +25,8 @@
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
 #include "ui/vertical_list.h"
+#include "ui/boxes/single_choice_box.h"
+#include "ui/layers/generic_box.h"
 #include "ui/widgets/buttons.h"
 #include "ui/wrap/vertical_layout.h"
 
@@ -293,6 +295,131 @@ void MessageShotBox::setupContent() {
 
 			Ui::show(std::move(box), Ui::LayerOption::KeepOther);
 		});
+	// AyuGram+: style / background / identity options
+	{
+		const auto styleOptions = std::vector{
+			tr::ayu_MessageShotStyleClassic(tr::now),
+			tr::ayu_MessageShotStyleCards(tr::now),
+			tr::ayu_MessageShotStyleCode(tr::now),
+		};
+		const auto styleLabel = content->lifetime().make_state<rpl::variable<QString>>(
+			styleOptions[std::clamp(shotSettings.shotStyle(), 0, 2)]);
+		AddButtonWithLabel(
+			content,
+			tr::ayu_MessageShotStyle(),
+			styleLabel->value(),
+			st::settingsButtonNoIcon
+		)->addClickHandler([=] {
+			Ui::show(Box([=](not_null<Ui::GenericBox*> box) {
+				SingleChoiceBox(box, {
+					.title = tr::ayu_MessageShotStyle(),
+					.options = styleOptions,
+					.initialSelection = std::clamp(
+						AyuSettings::getInstance().messageShotSettings().shotStyle(), 0, 2),
+					.callback = [=](int index) {
+						AyuSettings::getInstance().messageShotSettings().setShotStyle(index);
+						styleLabel->force_assign(styleOptions[index]);
+						updatePreview();
+					},
+				});
+			}), Ui::LayerOption::KeepOther);
+		});
+
+		const auto gradientOptions = std::vector{
+			tr::ayu_MessageShotGradientNone(tr::now),
+			tr::ayu_MessageShotGradientPurple(tr::now),
+			tr::ayu_MessageShotGradientOcean(tr::now),
+			tr::ayu_MessageShotGradientSunset(tr::now),
+			tr::ayu_MessageShotGradientMint(tr::now),
+			tr::ayu_MessageShotGradientNight(tr::now),
+			tr::ayu_MessageShotGradientPeach(tr::now),
+		};
+		const auto gradientLabel = content->lifetime().make_state<rpl::variable<QString>>(
+			gradientOptions[std::clamp(shotSettings.gradientPreset(), 0, 6)]);
+		AddButtonWithLabel(
+			content,
+			tr::ayu_MessageShotGradient(),
+			gradientLabel->value(),
+			st::settingsButtonNoIcon
+		)->addClickHandler([=] {
+			Ui::show(Box([=](not_null<Ui::GenericBox*> box) {
+				SingleChoiceBox(box, {
+					.title = tr::ayu_MessageShotGradient(),
+					.options = gradientOptions,
+					.initialSelection = std::clamp(
+						AyuSettings::getInstance().messageShotSettings().gradientPreset(), 0, 6),
+					.callback = [=](int index) {
+						AyuSettings::getInstance().messageShotSettings().setGradientPreset(index);
+						gradientLabel->force_assign(gradientOptions[index]);
+						updatePreview();
+					},
+				});
+			}), Ui::LayerOption::KeepOther);
+		});
+
+		const auto avatarOptions = std::vector{
+			tr::ayu_MessageShotAvatarsNormal(tr::now),
+			tr::ayu_MessageShotAvatarsInitials(tr::now),
+			tr::ayu_MessageShotAvatarsSolid(tr::now),
+			tr::ayu_MessageShotAvatarsHidden(tr::now),
+		};
+		const auto avatarLabel = content->lifetime().make_state<rpl::variable<QString>>(
+			avatarOptions[std::clamp(shotSettings.avatarMode(), 0, 3)]);
+		AddButtonWithLabel(
+			content,
+			tr::ayu_MessageShotAvatars(),
+			avatarLabel->value(),
+			st::settingsButtonNoIcon
+		)->addClickHandler([=] {
+			Ui::show(Box([=](not_null<Ui::GenericBox*> box) {
+				SingleChoiceBox(box, {
+					.title = tr::ayu_MessageShotAvatars(),
+					.options = avatarOptions,
+					.initialSelection = std::clamp(
+						AyuSettings::getInstance().messageShotSettings().avatarMode(), 0, 3),
+					.callback = [=](int index) {
+						AyuSettings::getInstance().messageShotSettings().setAvatarMode(index);
+						avatarLabel->force_assign(avatarOptions[index]);
+						updatePreview();
+					},
+				});
+			}), Ui::LayerOption::KeepOther);
+		});
+
+		AddButtonWithIcon(
+			content,
+			tr::ayu_MessageShotBlurAvatars(),
+			st::settingsButtonNoIcon
+		)->toggleOn(rpl::single(shotSettings.blurAvatars())
+		)->toggledValue(
+		) | rpl::skip(1) | on_next([=](bool enabled) {
+			AyuSettings::getInstance().messageShotSettings().setBlurAvatars(enabled);
+			updatePreview();
+		}, content->lifetime());
+
+		AddButtonWithIcon(
+			content,
+			tr::ayu_MessageShotBlurNames(),
+			st::settingsButtonNoIcon
+		)->toggleOn(rpl::single(shotSettings.blurNames())
+		)->toggledValue(
+		) | rpl::skip(1) | on_next([=](bool enabled) {
+			AyuSettings::getInstance().messageShotSettings().setBlurNames(enabled);
+			updatePreview();
+		}, content->lifetime());
+
+		AddButtonWithIcon(
+			content,
+			tr::ayu_MessageShotUseUsernames(),
+			st::settingsButtonNoIcon
+		)->toggleOn(rpl::single(shotSettings.useUsernames())
+		)->toggledValue(
+		) | rpl::skip(1) | on_next([=](bool enabled) {
+			AyuSettings::getInstance().messageShotSettings().setUseUsernames(enabled);
+			updatePreview();
+		}, content->lifetime());
+	}
+
 	AddButtonWithIcon(
 		content,
 		tr::ayu_MessageShotShowBackground(),

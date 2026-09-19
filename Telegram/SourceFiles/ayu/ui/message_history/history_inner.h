@@ -79,6 +79,7 @@ public:
 	void restoreState(not_null<SectionMemento*> memento);
 
 	void applySearch(const QString &query);
+	void jumpToDate(const QDate &date);
 
 	// Ui::AbstractTooltipShower interface.
 	QString tooltipText() const override;

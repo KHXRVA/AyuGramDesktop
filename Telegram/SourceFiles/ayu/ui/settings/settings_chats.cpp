@@ -9,10 +9,12 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/ui/boxes/edit_mark_box.h"
+#include "ayu/ui/boxes/pinned_reactions_box.h"
 #include "ayu/ui/components/message_preview.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
+#include "main/main_session.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "styles/style_ayu_icons.h"
@@ -74,6 +76,76 @@ void BuildStickersAndEmoji(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		},
 		.toggledWhenAll = false,
 	});
+
+	// AyuGram+: pinned reactions
+	builder.addSkip();
+	builder.addSubsectionTitle(tr::ayu_SettingsPinnedReactions());
+	ayu.addSettingToggle({
+		.id = u"ayu/pinnedReactionsInChats"_q,
+		.title = tr::ayu_SettingsPinnedReactionsChats(),
+		.getter = &AyuSettings::pinnedReactionsInChats,
+		.setter = &AyuSettings::setPinnedReactionsInChats,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/pinnedReactionsInChannels"_q,
+		.title = tr::ayu_SettingsPinnedReactionsChannels(),
+		.getter = &AyuSettings::pinnedReactionsInChannels,
+		.setter = &AyuSettings::setPinnedReactionsInChannels,
+	});
+	{
+		const auto controller = builder.controller();
+		const auto countLabel = [](const std::vector<QString> &list) {
+			return QString::number(list.size());
+		};
+		builder.addButton({
+			.id = u"ayu/pinnedReactionsChatsList"_q,
+			.title = tr::ayu_SettingsPinnedReactionsChatsList(),
+			.st = &st::settingsButtonNoIcon,
+			.label = rpl::single(rpl::empty) | rpl::then(
+				AyuSettings::getInstance().pinnedReactionsChanges()
+			) | rpl::map([=] {
+				return countLabel(AyuSettings::getInstance().pinnedReactionsChatsList());
+			}),
+			.onClick = [=] {
+				if (!controller) {
+					return;
+				}
+				controller->show(Box(
+					AyuUi::PinnedReactionsBox,
+					&controller->session(),
+					tr::ayu_SettingsPinnedReactionsChatsList(),
+					AyuSettings::getInstance().pinnedReactionsChatsList(),
+					[](std::vector<QString> list) {
+						AyuSettings::getInstance().setPinnedReactionsChatsList(std::move(list));
+					}));
+			},
+		});
+		builder.addButton({
+			.id = u"ayu/pinnedReactionsChannelsList"_q,
+			.title = tr::ayu_SettingsPinnedReactionsChannelsList(),
+			.st = &st::settingsButtonNoIcon,
+			.label = rpl::single(rpl::empty) | rpl::then(
+				AyuSettings::getInstance().pinnedReactionsChanges()
+			) | rpl::map([=] {
+				return countLabel(AyuSettings::getInstance().pinnedReactionsChannelsList());
+			}),
+			.onClick = [=] {
+				if (!controller) {
+					return;
+				}
+				controller->show(Box(
+					AyuUi::PinnedReactionsBox,
+					&controller->session(),
+					tr::ayu_SettingsPinnedReactionsChannelsList(),
+					AyuSettings::getInstance().pinnedReactionsChannelsList(),
+					[](std::vector<QString> list) {
+						AyuSettings::getInstance().setPinnedReactionsChannelsList(std::move(list));
+					}));
+			},
+		});
+	}
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_SettingsPinnedReactionsHint());
 
 	ayu.addSectionDivider();
 }
@@ -285,6 +357,26 @@ void BuildWideMessagesMultiplier(
 
 	builder.addSkip();
 	builder.addDividerText(tr::ayu_SettingsWideMultiplierDescription());
+	builder.addSkip();
+
+	// AyuGram+: round video message size (100%..300%, step 25%)
+	ayu.addSlider({
+		.id = u"ayu/roundVideoSize"_q,
+		.title = tr::ayu_SettingsRoundVideoSize(),
+		.steps = 9,
+		.current = std::clamp((settings->roundVideoSize() - 100) / 25, 0, 8),
+		.indexToValue = [](int index) { return index; },
+		.onChanged = nullptr,
+		.onFinalChanged = [=](int index) {
+			AyuSettings::getInstance().setRoundVideoSize(100 + index * 25);
+			ShowRestartPrompt(controller);
+		},
+		.formatLabel = [=](int index) {
+			return QString::number(100 + index * 25) + '%';
+		},
+	});
+	builder.addSkip();
+	builder.addDividerText(tr::ayu_SettingsRoundVideoSizeHint());
 	builder.addSkip();
 }
 

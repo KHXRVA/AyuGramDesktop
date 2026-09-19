@@ -8,12 +8,16 @@
 
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/data/messages_storage.h"
 #include "ayu/ui/ayu_userpic.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
 #include "boxes/peer_list_box.h"
 #include "core/application.h"
+#include "data/data_channel.h"
+#include "data/data_chat.h"
+#include "data/data_session.h"
 #include "data/data_user.h"
 #include "main/main_account.h"
 #include "main/main_domain.h"
@@ -30,10 +34,12 @@
 #include "styles/style_window.h"
 #include "ui/painter.h"
 #include "ui/vertical_list.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/boxes/single_choice_box.h"
 #include "ui/text/text.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/menu/menu_item_base.h"
 #include "ui/wrap/vertical_layout.h"
@@ -658,6 +664,105 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.title = tr::ayu_MessageSavingSaveForBots(),
 		.getter = &AyuSettings::saveForBots,
 		.setter = &AyuSettings::setSaveForBots,
+	});
+	// AyuGram+: channel / comments toggles and per-chat exclusions
+	ayu.addSettingToggle({
+		.id = u"ayu/saveDeletedInChannels"_q,
+		.title = tr::ayu_SettingsSaveDeletedInChannels(),
+		.getter = &AyuSettings::saveDeletedInChannels,
+		.setter = &AyuSettings::setSaveDeletedInChannels,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/saveDeletedInComments"_q,
+		.title = tr::ayu_SettingsSaveDeletedInComments(),
+		.getter = &AyuSettings::saveDeletedInComments,
+		.setter = &AyuSettings::setSaveDeletedInComments,
+	});
+	ayu.addSettingToggle({
+		.id = u"ayu/restoreDeletedInChat"_q,
+		.title = tr::ayu_SettingsRestoreDeletedInChat(),
+		.getter = &AyuSettings::restoreDeletedInChat,
+		.setter = &AyuSettings::setRestoreDeletedInChat,
+	});
+	builder.add([](const BuildContext &ctx) {
+		v::match(ctx, [&](const WidgetContext &wctx) {
+			const auto container = wctx.container;
+			const auto controller = wctx.controller;
+			const auto count = container->lifetime().make_state<rpl::variable<int>>(
+				int(AyuSettings::getInstance().deletedExcludedDialogs().size()));
+			const auto button = AddButtonWithLabel(
+				container,
+				tr::ayu_SettingsDeletedExclusions(),
+				count->value() | rpl::map([](int v) { return QString::number(v); }),
+				st::settingsButtonNoIcon);
+			button->addClickHandler([=] {
+				controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+					box->setTitle(tr::ayu_SettingsDeletedExclusions());
+					const auto content = box->verticalLayout();
+					const auto rebuild = [=](auto &&self) -> void {
+						content->clear();
+						const auto &excluded = AyuSettings::getInstance().deletedExcludedDialogs();
+						if (excluded.empty()) {
+							AddSkip(content);
+							content->add(
+								object_ptr<Ui::FlatLabel>(
+									content,
+									tr::ayu_SettingsDeletedExclusionsEmpty(),
+									st::boxDividerLabel),
+								st::boxRowPadding);
+							AddSkip(content);
+						}
+						for (const auto dialogId : std::vector<int64>(excluded.begin(), excluded.end())) {
+							auto name = QString::number(dialogId);
+							const auto bare = (dialogId < 0) ? -dialogId : dialogId;
+							if (const auto user = (dialogId > 0)
+								? controller->session().data().userLoaded(UserId(bare))
+								: nullptr) {
+								name = user->name();
+							} else if (const auto chat = (dialogId < 0)
+								? controller->session().data().chatLoaded(ChatId(bare))
+								: nullptr) {
+								name = chat->name();
+							} else if (const auto channel = (dialogId < 0)
+								? controller->session().data().channelLoaded(ChannelId(bare))
+								: nullptr) {
+								name = channel->name();
+							}
+							const auto row = content->add(object_ptr<Ui::SettingsButton>(
+								content,
+								rpl::single(name),
+								st::settingsButtonNoIcon));
+							row->addClickHandler([=] {
+								AyuSettings::getInstance().removeDeletedExcludedDialog(dialogId);
+								*count = int(AyuSettings::getInstance().deletedExcludedDialogs().size());
+								self(self);
+							});
+						}
+						AddDividerText(content, tr::ayu_SettingsDeletedExclusionsHint());
+					};
+					rebuild(rebuild);
+					box->addButton(tr::lng_close(), [=] { box->closeBox(); });
+				}));
+			});
+			const auto clearChannels = AddButtonWithIcon(
+				container,
+				tr::ayu_ClearDeletedInChannels(),
+				st::settingsAttentionButton);
+			clearChannels->addClickHandler([=] {
+				controller->show(Ui::MakeConfirmBox({
+					.text = tr::ayu_ClearDeletedInChannelsText(tr::now),
+					.confirmed = [=](Fn<void()> &&close) {
+						// Peer lookups must stay on the main thread.
+						const auto cleared = AyuMessages::clearDeletedMessagesInChannels(
+							&controller->session());
+						Ui::Toast::Show(tr::ayu_ClearDeletedInChannelsDone(tr::now, lt_count, cleared));
+						close();
+					},
+					.confirmText = tr::ayu_ClearDeletedMessagesActionText(),
+					.confirmStyle = &st::attentionBoxButton,
+				}));
+			});
+		});
 	});
 }
 

@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mainwindow.h"
 #include "media/audio/media_audio.h"
 #include "media/audio/media_audio_edit.h"
+#include "media/media_video_encode.h"
 #include "media/audio/media_audio_capture.h"
 #include "media/player/media_player_button.h"
 #include "media/player/media_player_instance.h"
@@ -1599,7 +1600,25 @@ void ListenWrap::applyTrimSelection(bool resetSelection) {
 	if (selectedSamples < kMinSamples) {
 		return;
 	}
-	const auto trimmed = ::Media::TrimAudioToRange(_data->content, from, till);
+	// AyuGram+: round video messages are re-encoded to the selected range,
+	// voice messages go through the fast audio trimming path.
+	const auto isRoundVideo = (_data->minithumbsCount > 0)
+		|| _data->content.mid(4, 4) == "ftyp";
+	auto trimmed = ::Media::AudioEditResult();
+	if (isRoundVideo) {
+		auto source = ::Media::Encode::VideoSource();
+		source.bytes = _data->content;
+		source.from = from;
+		source.till = till;
+		auto result = ::Media::Encode::Run({ .source = std::move(source) });
+		if (result.empty()) {
+			return;
+		}
+		trimmed.content = std::move(result.bytes);
+		trimmed.duration = result.duration ? result.duration : (till - from);
+	} else {
+		trimmed = ::Media::TrimAudioToRange(_data->content, from, till);
+	}
 	if (trimmed.content.isEmpty()) {
 		return;
 	}
@@ -2957,7 +2976,7 @@ void VoiceRecordBar::stopRecording(StopType type, bool ttlBeforeHide) {
 						_send,
 						&_show->session(),
 						&_data,
-						false,
+						true, // AyuGram+: allow trimming round videos
 						_cancelFont);
 					_listenChanges.fire({});
 

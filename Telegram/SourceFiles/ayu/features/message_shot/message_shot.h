@@ -12,6 +12,7 @@
 #include "window/window_session_controller.h"
 
 class HistoryInner;
+class PeerData;
 
 namespace AyuFeatures::MessageShot {
 
@@ -41,6 +42,19 @@ bool setChoosingTheme(bool val);
 
 // util
 QColor makeDefaultBackgroundColor();
+
+// AyuGram+: message shot helpers used by the history painters.
+[[nodiscard]] QString DisplayNameFor(not_null<PeerData*> peer);
+[[nodiscard]] bool ShouldBlurNames();
+void PaintBlurred(
+	QPainter &p,
+	const QRect &rect,
+	Fn<void(QPainter&)> paint);
+[[nodiscard]] QImage BlurImage(QImage image, int radius);
+
+// Gradient presets for the shot background (0 - use theme color).
+[[nodiscard]] int GradientPresetsCount();
+[[nodiscard]] QLinearGradient GradientPreset(int index, const QRect &rect);
 
 void Make(not_null<QWidget*> box, const ShotConfig &config, const Fn<void(QImage&,bool)>& callback);
 

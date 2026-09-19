@@ -21,6 +21,7 @@
 #include "rpl/combine.h"
 #include "window/window_controller.h"
 
+#include <algorithm>
 #include <fstream>
 #include <QApplication>
 
@@ -261,6 +262,42 @@ void MessageShotSettings::setRevealSpoilers(bool val) {
 	AyuSettings::save();
 }
 
+void MessageShotSettings::setUseUsernames(bool val) {
+	if (_useUsernames.current() == val) return;
+	_useUsernames = val;
+	AyuSettings::save();
+}
+
+void MessageShotSettings::setAvatarMode(int val) {
+	if (_avatarMode.current() == val) return;
+	_avatarMode = val;
+	AyuSettings::save();
+}
+
+void MessageShotSettings::setBlurAvatars(bool val) {
+	if (_blurAvatars.current() == val) return;
+	_blurAvatars = val;
+	AyuSettings::save();
+}
+
+void MessageShotSettings::setBlurNames(bool val) {
+	if (_blurNames.current() == val) return;
+	_blurNames = val;
+	AyuSettings::save();
+}
+
+void MessageShotSettings::setShotStyle(int val) {
+	if (_shotStyle.current() == val) return;
+	_shotStyle = val;
+	AyuSettings::save();
+}
+
+void MessageShotSettings::setGradientPreset(int val) {
+	if (_gradientPreset.current() == val) return;
+	_gradientPreset = val;
+	AyuSettings::save();
+}
+
 bool MessageShotSettings::isCloudThemeEmpty() const {
 	return !_cloudThemeId.current()
 		&& !_cloudThemeAccessHash.current()
@@ -328,6 +365,12 @@ void to_json(nlohmann::json &j, const MessageShotSettings &s) {
 		{"showHeaderDecorations", s._showHeaderDecorations.current()},
 		{"showColorfulReplies", s._showColorfulReplies.current()},
 		{"revealSpoilers", s._revealSpoilers.current()},
+		{"useUsernames", s._useUsernames.current()},
+		{"avatarMode", s._avatarMode.current()},
+		{"blurAvatars", s._blurAvatars.current()},
+		{"blurNames", s._blurNames.current()},
+		{"shotStyle", s._shotStyle.current()},
+		{"gradientPreset", s._gradientPreset.current()},
 		{"embeddedThemeType", s._embeddedThemeType.current()},
 		{"embeddedThemeAccentColor", s._embeddedThemeAccentColor.current()},
 		{"cloudThemeId", s._cloudThemeId.current()},
@@ -345,6 +388,12 @@ void from_json(const nlohmann::json &j, MessageShotSettings &s) {
 	s._showHeaderDecorations = j.value("showHeaderDecorations", true);
 	s._showColorfulReplies = j.value("showColorfulReplies", true);
 	s._revealSpoilers = j.value("revealSpoilers", true);
+	s._useUsernames = j.value("useUsernames", false);
+	s._avatarMode = std::clamp(j.value("avatarMode", 0), 0, 3);
+	s._blurAvatars = j.value("blurAvatars", false);
+	s._blurNames = j.value("blurNames", false);
+	s._shotStyle = std::clamp(j.value("shotStyle", 0), 0, 2);
+	s._gradientPreset = std::clamp(j.value("gradientPreset", 0), 0, 6);
 	s._embeddedThemeType = j.value("embeddedThemeType", j.value("themeType", -1));
 	s._embeddedThemeAccentColor = j.value("embeddedThemeAccentColor", j.value("themeAccentColor", uint32(0)));
 	s._cloudThemeId = j.value("cloudThemeId", uint64(0));
@@ -1069,6 +1118,97 @@ void AyuSettings::setStreamerMode(bool val) {
 	save();
 }
 
+// AyuGram+ additions
+
+void AyuSettings::addDeletedExcludedDialog(int64 dialogId) {
+	if (_deletedExcludedDialogs.insert(dialogId).second) {
+		save();
+	}
+}
+
+void AyuSettings::removeDeletedExcludedDialog(int64 dialogId) {
+	if (_deletedExcludedDialogs.erase(dialogId) > 0) {
+		save();
+	}
+}
+
+void AyuSettings::setSaveDeletedInChannels(bool val) {
+	if (_saveDeletedInChannels.current() == val) return;
+	_saveDeletedInChannels = val;
+	save();
+}
+
+void AyuSettings::setSaveDeletedInComments(bool val) {
+	if (_saveDeletedInComments.current() == val) return;
+	_saveDeletedInComments = val;
+	save();
+}
+
+void AyuSettings::setHideWalletInDrawer(bool val) {
+	if (_hideWalletInDrawer.current() == val) return;
+	_hideWalletInDrawer = val;
+	save();
+}
+
+void AyuSettings::setCustomAppName(const QString &val) {
+	const auto trimmed = val.trimmed().left(32);
+	if (_customAppName.current() == trimmed) return;
+	_customAppName = trimmed;
+	save();
+}
+
+QString AyuSettings::effectiveAppName() const {
+	const auto &custom = _customAppName.current();
+	return custom.isEmpty() ? QString::fromUtf8("AyuGram") : custom;
+}
+
+void AyuSettings::setRoundVideoSize(int val) {
+	val = std::clamp(val, 100, 300);
+	if (_roundVideoSize.current() == val) return;
+	_roundVideoSize = val;
+	save();
+}
+
+void AyuSettings::setPinnedReactionsInChats(bool val) {
+	if (_pinnedReactionsInChats.current() == val) return;
+	_pinnedReactionsInChats = val;
+	save();
+	_pinnedReactionsChanges.fire({});
+}
+
+void AyuSettings::setPinnedReactionsInChannels(bool val) {
+	if (_pinnedReactionsInChannels.current() == val) return;
+	_pinnedReactionsInChannels = val;
+	save();
+	_pinnedReactionsChanges.fire({});
+}
+
+void AyuSettings::setPinnedReactionsChatsList(std::vector<QString> val) {
+	if (_pinnedReactionsChatsList == val) return;
+	_pinnedReactionsChatsList = std::move(val);
+	save();
+	_pinnedReactionsChanges.fire({});
+}
+
+void AyuSettings::setPinnedReactionsChannelsList(std::vector<QString> val) {
+	if (_pinnedReactionsChannelsList == val) return;
+	_pinnedReactionsChannelsList = std::move(val);
+	save();
+	_pinnedReactionsChanges.fire({});
+}
+
+void AyuSettings::setHideReplyOnForward(bool val) {
+	if (_hideReplyOnForward.current() == val) return;
+	_hideReplyOnForward = val;
+	save();
+}
+
+void AyuSettings::setRestoreDeletedInChat(bool val) {
+	if (_restoreDeletedInChat.current() == val) return;
+	_restoreDeletedInChat = val;
+	save();
+}
+
 void to_json(nlohmann::json &j, const AyuSettings &s) {
 	auto ghostAccounts = nlohmann::json::object();
 	for (const auto &[key, value] : s._ghostAccounts) {
@@ -1165,6 +1305,18 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"avatarCorners", s._avatarCorners.current()},
 		{"singleCornerRadius", s._singleCornerRadius.current()},
 		{"streamerMode", s._streamerMode.current()},
+		{"saveDeletedInChannels", s._saveDeletedInChannels.current()},
+		{"saveDeletedInComments", s._saveDeletedInComments.current()},
+		{"deletedExcludedDialogs", s._deletedExcludedDialogs},
+		{"hideWalletInDrawer", s._hideWalletInDrawer.current()},
+		{"customAppName", s._customAppName.current()},
+		{"roundVideoSize", s._roundVideoSize.current()},
+		{"pinnedReactionsInChats", s._pinnedReactionsInChats.current()},
+		{"pinnedReactionsInChannels", s._pinnedReactionsInChannels.current()},
+		{"pinnedReactionsChatsList", s._pinnedReactionsChatsList},
+		{"pinnedReactionsChannelsList", s._pinnedReactionsChannelsList},
+		{"hideReplyOnForward", s._hideReplyOnForward.current()},
+		{"restoreDeletedInChat", s._restoreDeletedInChat.current()},
 		{"messageShotSettings", s._messageShotSettings}
 	};
 }
@@ -1269,6 +1421,18 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._avatarCorners = j.value("avatarCorners", defaults._avatarCorners.current());
 	s._singleCornerRadius = j.value("singleCornerRadius", defaults._singleCornerRadius.current());
 	s._streamerMode = j.value("streamerMode", defaults._streamerMode.current());
+	s._saveDeletedInChannels = j.value("saveDeletedInChannels", defaults._saveDeletedInChannels.current());
+	s._saveDeletedInComments = j.value("saveDeletedInComments", defaults._saveDeletedInComments.current());
+	s._deletedExcludedDialogs = j.value("deletedExcludedDialogs", defaults._deletedExcludedDialogs);
+	s._hideWalletInDrawer = j.value("hideWalletInDrawer", defaults._hideWalletInDrawer.current());
+	s._customAppName = j.value("customAppName", defaults._customAppName.current());
+	s._roundVideoSize = std::clamp(j.value("roundVideoSize", defaults._roundVideoSize.current()), 100, 300);
+	s._pinnedReactionsInChats = j.value("pinnedReactionsInChats", defaults._pinnedReactionsInChats.current());
+	s._pinnedReactionsInChannels = j.value("pinnedReactionsInChannels", defaults._pinnedReactionsInChannels.current());
+	s._pinnedReactionsChatsList = j.value("pinnedReactionsChatsList", defaults._pinnedReactionsChatsList);
+	s._pinnedReactionsChannelsList = j.value("pinnedReactionsChannelsList", defaults._pinnedReactionsChannelsList);
+	s._hideReplyOnForward = j.value("hideReplyOnForward", defaults._hideReplyOnForward.current());
+	s._restoreDeletedInChat = j.value("restoreDeletedInChat", defaults._restoreDeletedInChat.current());
 
 	if (j.contains("messageShotSettings") && j["messageShotSettings"].is_object()) {
 		j["messageShotSettings"].get_to(s._messageShotSettings);

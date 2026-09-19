@@ -718,7 +718,24 @@ bool isMessageSavable(const not_null<HistoryItem*> item) {
 		return false;
 	}
 
-	if (const auto possiblyBot = item->history()->peer->asUser()) {
+	const auto peer = item->history()->peer;
+	// AyuGram+: per-chat exclusions
+	if (settings.isDeletedSavingExcluded(getDialogIdFromPeer(peer))) {
+		return false;
+	}
+	if (const auto channel = peer->asChannel()) {
+		// AyuGram+: broadcast channels / discussion groups toggles
+		if (channel->isBroadcast() && !settings.saveDeletedInChannels()) {
+			return false;
+		}
+		if (channel->isMegagroup()
+			&& channel->linkedChat()
+			&& !settings.saveDeletedInComments()) {
+			return false;
+		}
+	}
+
+	if (const auto possiblyBot = peer->asUser()) {
 		return !possiblyBot->isBot() || (settings.saveForBots() && possiblyBot->isBot());
 	}
 	return true;

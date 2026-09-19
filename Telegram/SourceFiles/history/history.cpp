@@ -85,6 +85,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ayu_settings.h"
+#include "ayu/data/deleted_injector.h"
 #include "ayu/ayu_state.h"
 
 
@@ -1849,7 +1850,28 @@ void History::addEdgesToSharedMedia() {
 	}
 }
 
-void History::addOlderSlice(const QVector<MTPMessage> &slice) {
+void History::addOlderSlice(const QVector<MTPMessage> &sliceFromServer) {
+	// AyuGram+: keep locally saved deleted messages in their place.
+	auto slice = sliceFromServer;
+	if (!slice.isEmpty()) {
+		auto sliceMin = MsgId();
+		auto sliceMax = MsgId();
+		for (const auto &message : slice) {
+			const auto id = IdFromMessage(message);
+			if (!sliceMin || id < sliceMin) sliceMin = id;
+			if (id > sliceMax) sliceMax = id;
+		}
+		const auto existingMin = isEmpty() ? MsgId() : minMsgId();
+		const auto upper = existingMin
+			? (existingMin - 1)
+			: (loadedAtBottom() ? MsgId() : sliceMax);
+		slice = AyuMessages::mergeDeletedIntoSlice(
+			this,
+			slice,
+			sliceMin,
+			upper);
+	}
+
 	if (slice.isEmpty()) {
 		_loadedAtTop = true;
 		checkLocalMessages();
@@ -1863,6 +1885,7 @@ void History::addOlderSlice(const QVector<MTPMessage> &slice) {
 		_loadedAtTop = true;
 		addEdgesToSharedMedia();
 	}
+	AyuMessages::markInjectedAsDeleted(this);
 	checkLocalMessages();
 	checkLastMessage();
 }
@@ -1888,8 +1911,26 @@ void History::addCreatedOlderSlice(
 	addToSharedMedia(items);
 }
 
-void History::addNewerSlice(const QVector<MTPMessage> &slice) {
+void History::addNewerSlice(const QVector<MTPMessage> &sliceFromServer) {
 	bool wasLoadedAtBottom = loadedAtBottom();
+
+	// AyuGram+: keep locally saved deleted messages in their place.
+	auto slice = sliceFromServer;
+	if (!slice.isEmpty()) {
+		auto sliceMin = MsgId();
+		auto sliceMax = MsgId();
+		for (const auto &message : slice) {
+			const auto id = IdFromMessage(message);
+			if (!sliceMin || id < sliceMin) sliceMin = id;
+			if (id > sliceMax) sliceMax = id;
+		}
+		const auto existingMax = isEmpty() ? MsgId() : maxMsgId();
+		slice = AyuMessages::mergeDeletedIntoSlice(
+			this,
+			slice,
+			existingMax ? (existingMax + 1) : sliceMin,
+			sliceMax);
+	}
 
 	if (slice.isEmpty()) {
 		_loadedAtBottom = true;
@@ -1906,6 +1947,7 @@ void History::addNewerSlice(const QVector<MTPMessage> &slice) {
 		}
 
 		addToSharedMedia(added);
+		AyuMessages::markInjectedAsDeleted(this);
 	} else {
 		_loadedAtBottom = true;
 		setLastMessage(lastAvailableMessage());

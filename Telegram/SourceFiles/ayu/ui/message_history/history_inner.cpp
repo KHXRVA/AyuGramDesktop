@@ -729,6 +729,49 @@ void InnerWidget::applySearch(const QString &query) {
 	}
 }
 
+void InnerWidget::jumpToDate(const QDate &date) {
+	if (_item) {
+		return;
+	}
+	const auto dateTill = base::unixtime::serialize(
+		date.addDays(1).startOfDay());
+	const auto peer = _peer;
+	const auto topicId = _topicId;
+	const auto weak = base::make_weak(this);
+	const auto reqNum = ++_loadRequestNum;
+	crl::async([=] {
+		const auto found = AyuMessages::getDeletedMessagesByDate(
+			peer,
+			topicId,
+			0,
+			dateTill,
+			1);
+		const auto id = found.empty() ? ID(0) : ID(found.front().messageId);
+		crl::on_main([=] {
+			if (!weak || reqNum != _loadRequestNum) {
+				return;
+			}
+			if (!id) {
+				return;
+			}
+			_loadingUp = false;
+			_loadingDown = false;
+			_items.clear();
+			_messageIds.clear();
+			_itemsByData.clear();
+			_itemDates.clear();
+			// Load messages with id <= found going up and > found going down.
+			_minId = id + 1;
+			_maxId = id;
+			_upLoaded = false;
+			_downLoaded = false;
+			updateEmptyText();
+			updateSize();
+			preloadMore(Direction::Up);
+		});
+	});
+}
+
 void InnerWidget::preloadMore(Direction direction) {
 	auto &loadedFlag = (direction == Direction::Up) ? _upLoaded : _downLoaded;
 	auto &loadingFlag = (direction == Direction::Up) ? _loadingUp : _loadingDown;
