@@ -55,7 +55,7 @@ constexpr auto kFullDuration = kExpandDuration + kScaleDuration;
 constexpr auto kExpandDelay = crl::time(40);
 constexpr auto kAcceptClicksAfter = crl::time(300);
 constexpr auto kDefaultColumns = 8;
-constexpr auto kMinNonTransparentColumns = 7;
+constexpr auto kMinNonTransparentColumns = 8;
 
 class StripEmoji final : public Ui::Text::CustomEmoji {
 public:
