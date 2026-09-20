@@ -29,12 +29,14 @@
 #include "data/data_channel.h"
 #include "data/data_chat.h"
 #include "data/data_forum_topic.h"
+#include "data/data_groups.h"
 #include "data/data_search_controller.h"
 #include "data/data_session.h"
 #include "data/data_user.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "history/history_item_components.h"
+#include "history/history_item_text.h"
 #include "history/view/history_view_context_menu.h"
 #include "history/view/history_view_element.h"
 #include "main/main_session.h"
@@ -43,6 +45,7 @@
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
 #include "ui/boxes/confirm_box.h"
+#include "ui/text/text_entity.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
@@ -1089,6 +1092,32 @@ void AddReadUntilAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 			}
 		},
 		&st::menuIconShowInChat);
+}
+
+void AddCopyChatLogAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+	if (!item || !base::IsExtendedContextMenuModifierPressed()) {
+		return;
+	}
+	const auto itemId = item->fullId();
+	const auto session = &item->history()->session();
+	menu->addAction(
+		tr::ayu_ContextCopyChatLog(tr::now),
+		[=]
+		{
+			const auto item = session->data().message(itemId);
+			if (!item) {
+				return;
+			}
+			auto entries = std::vector<HistorySelectedTextEntry>();
+			if (const auto group = session->data().groups().find(item)) {
+				entries.push_back({ group->items.back(), group });
+			} else {
+				entries.push_back({ item, nullptr });
+			}
+			TextUtilities::SetClipboardText(
+				HistorySelectedItemsText(entries, true));
+		},
+		&st::menuIconCopy);
 }
 
 void AddBurnAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {

@@ -365,9 +365,10 @@ public:
 	void refreshViewer();
 	void overrideInitialScroll(Fn<bool()> callback);
 
-	[[nodiscard]] TextForMimeData getSelectedText() const;
+	[[nodiscard]] TextForMimeData getSelectedText(
+		bool withMeta = false) const;
 	[[nodiscard]] Iv::RichPageBlocksSlice getSelectedRichBlocks() const;
-	void copySelectedText();
+	void copySelectedText(bool withMeta = false);
 	[[nodiscard]] MessageIdsList getSelectedIds() const;
 	[[nodiscard]] SelectedItems getSelectedItems() const;
 	[[nodiscard]] TextSelection getSelectedTextRange(

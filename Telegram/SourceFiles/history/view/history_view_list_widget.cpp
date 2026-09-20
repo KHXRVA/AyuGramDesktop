@@ -3523,7 +3523,7 @@ void ListWidget::applyDragSelection(SelectedMap &applyTo) const {
 	}
 }
 
-TextForMimeData ListWidget::getSelectedText() const {
+TextForMimeData ListWidget::getSelectedText(bool withMeta) const {
 	auto selected = _selected;
 
 	if (_mouseAction == MouseAction::Selecting && !_dragSelected.empty()) {
@@ -3537,7 +3537,7 @@ TextForMimeData ListWidget::getSelectedText() const {
 		return _selectedText;
 	}
 
-	const auto richContext = (selected.size() > 1);
+	const auto richContext = (selected.size() > 1) || withMeta;
 	auto groups = base::flat_set<not_null<const Data::Group*>>();
 	auto entries = std::vector<HistorySelectedTextEntry>();
 	entries.reserve(selected.size());
@@ -3575,6 +3575,13 @@ TextForMimeData ListWidget::getSelectedText() const {
 			const HistorySelectedTextEntry &b) {
 			return _delegate->listIsLessInOrder(a.item, b.item);
 		});
+	if (!richContext && entries.size() == 1) {
+		const auto &part = entries.front();
+		if (part.group) {
+			return HistoryGroupText(not_null<const Data::Group*>{ part.group });
+		}
+		return HistoryItemText(part.item);
+	}
 	return HistorySelectedItemsText(entries, richContext);
 }
 
@@ -3599,11 +3606,11 @@ Iv::RichPageBlocksSlice ListWidget::getSelectedRichBlocks() const {
 		: HistoryItemRichBlocks(item);
 }
 
-void ListWidget::copySelectedText() {
+void ListWidget::copySelectedText(bool withMeta) {
 	if (showCopyRestrictionForSelected()) {
 		return;
 	}
-	const auto text = getSelectedText();
+	const auto text = getSelectedText(withMeta);
 	if (text.empty()) {
 		return;
 	}
@@ -3887,6 +3894,12 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 		} else {
 			_delegate->listCancelRequest();
 		}
+	} else if ((key == Qt::Key_C || e->nativeVirtualKey() == 0x43)
+		&& e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
+		&& (hasSelectedText() || hasSelectedItems())
+		&& !showCopyRestriction()
+		&& !hasCopyRestrictionForSelected()) {
+		copySelectedText(true);
 	} else if (e == QKeySequence::Copy
 		&& (hasSelectedText() || hasSelectedItems())
 		&& !showCopyRestriction()

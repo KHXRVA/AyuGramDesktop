@@ -158,7 +158,8 @@ public:
 		not_null<PeerData*> peer,
 		const QVector<MTPMessage> &messages);
 
-	[[nodiscard]] TextForMimeData getSelectedText() const;
+	[[nodiscard]] TextForMimeData getSelectedText(
+		bool withMeta = false) const;
 	[[nodiscard]] Iv::RichPageBlocksSlice getSelectedRichBlocks() const;
 
 	void touchScrollUpdated(const QPoint &screenPos);
@@ -535,7 +536,7 @@ private:
 	void reportAsGroup(FullMsgId itemId);
 	void blockSenderItem(FullMsgId itemId);
 	void blockSenderAsGroup(FullMsgId itemId);
-	void copySelectedText();
+	void copySelectedText(bool withMeta = false);
 	void editCaptionUploadLayer(not_null<HistoryItem*> item);
 
 	[[nodiscard]] auto reactionButtonParameters(

@@ -22,6 +22,7 @@ const std::vector<std::pair<const char*, const char*>> kRussian = {
 	{ "ayu_SettingsDeletedExclusionsEmpty", "Нет исключённых чатов" },
 	{ "ayu_ContextExcludeDeleted", "Не сохранять удалёнки" },
 	{ "ayu_ContextIncludeDeleted", "Сохранять удалёнки" },
+	{ "ayu_ContextCopyChatLog", "Копировать как чат-лог" },
 	{ "ayu_ContextClearDeletedSelected", "Очистить удалённые в выбранных" },
 	{ "ayu_ClearDeletedSelectedText#one", "Очистить сохранённые удалённые сообщения в {count} чате?" },
 	{ "ayu_ClearDeletedSelectedText#few", "Очистить сохранённые удалённые сообщения в {count} чатах?" },

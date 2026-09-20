@@ -1415,6 +1415,7 @@ void AddMessageActions(
 		AyuUi::AddUserMessagesAction(menu, request.item);
 		AyuUi::AddRepeatMessageAction(menu, request.item, context);
 		AyuUi::AddMessageDetailsAction(menu, request.item);
+		AyuUi::AddCopyChatLogAction(menu, request.item);
 	}
 
 	AddPostLinkAction(menu, request);

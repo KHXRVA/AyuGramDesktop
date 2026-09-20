@@ -3146,6 +3146,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 		AyuUi::AddUserMessagesAction(_menu, item);
 		AyuUi::AddRepeatMessageAction(_menu, item, HistoryView::Context::History);
 		AyuUi::AddMessageDetailsAction(_menu, item);
+		AyuUi::AddCopyChatLogAction(_menu, item);
 	};
 	const auto addPhotoActions = [&](not_null<PhotoData*> photo, HistoryItem *item) {
 		const auto media = photo->activeMediaView();
@@ -4065,11 +4066,11 @@ bool HistoryInner::showCopyRestrictionForSelected() {
 		&& showCopyRestriction(_selectedTextItem);
 }
 
-void HistoryInner::copySelectedText() {
+void HistoryInner::copySelectedText(bool withMeta) {
 	if (showCopyRestrictionForSelected()) {
 		return;
 	}
-	const auto text = getSelectedText();
+	const auto text = getSelectedText(withMeta);
 	if (text.empty()) {
 		return;
 	}
@@ -4193,7 +4194,7 @@ void HistoryInner::resizeEvent(QResizeEvent *e) {
 	mouseActionUpdate();
 }
 
-TextForMimeData HistoryInner::getSelectedText() const {
+TextForMimeData HistoryInner::getSelectedText(bool withMeta) const {
 	auto selected = _selected;
 
 	if (_mouseAction == MouseAction::Selecting && _dragSelFrom && _dragSelTo) {
@@ -4207,7 +4208,7 @@ TextForMimeData HistoryInner::getSelectedText() const {
 		return _selectedText;
 	}
 
-	const auto richContext = (selected.size() > 1);
+	const auto richContext = (selected.size() > 1) || withMeta;
 	auto groups = base::flat_set<not_null<const Data::Group*>>();
 	auto texts = base::flat_map<
 		Data::MessagePosition,
@@ -4464,6 +4465,10 @@ void HistoryInner::keyPressEvent(QKeyEvent *e) {
 
 	if (e->key() == Qt::Key_Escape) {
 		_widget->escape();
+	} else if ((e->key() == Qt::Key_C || e->nativeVirtualKey() == 0x43)
+		&& e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)
+		&& canCopySelected()) {
+		copySelectedText(true);
 	} else if (e == QKeySequence::Copy
 		&& canCopySelected()) {
 		copySelectedText();
