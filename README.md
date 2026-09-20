@@ -6,16 +6,39 @@
 
 ## About this fork
 
-Based on AyuGram Desktop with upstream Telegram Desktop 7.2.9 merged in. Extra features:
+Based on AyuGram Desktop with upstream Telegram Desktop 7.2.9 merged in (fixes "message not supported" for rich messages with buttons). Extra features:
 
-- deleted messages are kept in the chat after restart, with media; per-chat exclusions, channel/comment toggles, bulk clear, jump to date
-- pinned reactions with custom emoji, always 7 in the quick strip
-- Message Shot: usernames, avatar modes, blur for avatars and names, Classic / Cards / Code window styles, gradient backgrounds
-- round video size and trimming, hide reply on forward, remove all my reactions, hide Wallet in the drawer
-- copy with metadata: Ctrl+Shift+C and "Copy as chat log" in the extended message menu (Ctrl/Shift + right click)
-- custom client name (regular build only)
+**Deleted messages**
+- kept in the chat after restart, including media
+- separate toggles for saving deleted messages in channels and in comments
+- per-chat exclusions: "Save deleted here" / "Don't save deleted here" in the chat menu, exclusions list in settings
+- bulk clear of saved deleted messages
+- jump to date (calendar) in the deleted messages viewer
 
-Community edition: configure with `-DAYU_COMMUNITY_BUILD=ON` (see `Telegram/cmake/telegram_options.cmake` for the tag, author and link). It has a fixed client name and shows the build author in the main menu, the about box, the version string, the executable properties and the AyuGram settings header.
+**Reactions**
+- pinned reactions for chats and channels, custom emoji supported, emoji panel in the editor
+- the quick strip always shows 7 reactions plus the expand arrow, custom emoji stay animated, your order is kept
+- "Remove all my reactions" in the chat menu
+
+**Message Shot**
+- usernames instead of names (without @), avatar modes, blur for avatars and names
+- messages aligned by common bounds
+- styles: Classic, Cards, Code window; gradient backgrounds
+
+**Media**
+- round video size 100–300%
+- trimming of round videos before sending
+
+**Copying**
+- Ctrl+C: single message without metadata, several messages as a chat log
+- Ctrl+Shift+C: always with metadata (date, time, author, reply target)
+- "Copy as chat log" in the extended message menu (Ctrl/Shift + right click)
+
+**Other**
+- hide reply on forward
+- hide Wallet in the drawer
+
+Community edition: configure with `-DAYU_COMMUNITY_BUILD=ON` (see `Telegram/cmake/telegram_options.cmake` for the tag, author and link). It shows the build author in the main menu, the about box, the version string, the executable properties and the AyuGram settings header.
 
 ## Features
 
