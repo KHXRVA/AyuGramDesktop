@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "logs.h"
 
+#include "ayu/ayu_build.h"
+
 #include "platform/platform_specific.h"
 #include "core/crash_reports.h"
 #include "core/launcher.h"
@@ -392,11 +394,12 @@ void start() {
 		LogsData = nullptr;
 	}
 
-	LOG(("Launched version: %1, install beta: %2, alpha: %3, debug mode: %4"
+	LOG(("Launched version: %1%5, install beta: %2, alpha: %3, debug mode: %4"
 		).arg(AppVersion
 		).arg(Logs::b(cInstallBetaVersion())
 		).arg(cAlphaVersion()
-		).arg(Logs::b(DebugEnabled())));
+		).arg(Logs::b(DebugEnabled())
+		).arg(AyuBuild::VersionSuffix()));
 	LOG(("Executable dir: %1, name: %2").arg(cExeDir(), cExeName()));
 	LOG(("Initial working dir: %1").arg(launcher.initialWorkingDir()));
 	LOG(("Working dir: %1").arg(cWorkingDir()));

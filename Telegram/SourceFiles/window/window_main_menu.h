@@ -106,6 +106,7 @@ private:
 	not_null<Ui::RpWidget*> _footer;
 	not_null<Ui::FlatLabel*> _telegram;
 	not_null<Ui::FlatLabel*> _version;
+	Ui::FlatLabel *_community = nullptr;
 	QPointer<Ui::SettingsButton> _nightThemeToggle;
 	rpl::event_stream<bool> _nightThemeSwitches;
 	base::Timer _nightThemeSwitch;

@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/window_main_menu.h"
 
+#include "ayu/ayu_build.h"
+
 #include "apiwrap.h"
 #include "base/event_filter.h"
 #include "base/qt_signal_producer.h"
@@ -351,8 +353,17 @@ MainMenu::MainMenu(
 , _footer(_inner->add(object_ptr<Ui::RpWidget>(_inner.get())))
 , _telegram(
 	Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuTelegramLabel))
-, _version(AddVersionLabel(_footer)) {
+, _version(AddVersionLabel(_footer))
+, _community(AyuBuild::IsCommunity()
+	? Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuVersionLabel)
+	: nullptr) {
 	setAttribute(Qt::WA_OpaquePaintEvent);
+	if (_community) {
+		_community->setMarkedText(tr::link(
+			AyuBuild::CommunityLabel(),
+			AyuBuild::AuthorLink()));
+		_community->setLinksTrusted();
+	}
 
 	setupUserpicButton();
 	setupAccountsToggle();
@@ -380,8 +391,12 @@ MainMenu::MainMenu(
 
 	_footer->heightValue(
 	) | rpl::on_next([=] {
-		_telegram->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuTelegramBottom - _telegram->height());
-		_version->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _version->height());
+		const auto shift = _community ? _community->height() : 0;
+		_telegram->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuTelegramBottom - _telegram->height() - shift);
+		_version->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _version->height() - shift);
+		if (_community) {
+			_community->moveToLeft(st::mainMenuFooterLeft, _footer->height() - st::mainMenuVersionBottom - _community->height());
+		}
 	}, _footer->lifetime());
 
 	rpl::combine(
@@ -963,7 +978,7 @@ void MainMenu::updateInnerControlsGeometry() {
 	const auto available = height() - st::mainMenuCoverHeight - contentHeight;
 	const auto footerHeight = std::max(
 		available,
-		st::mainMenuFooterHeightMin);
+		st::mainMenuFooterHeightMin + (_community ? _community->height() : 0));
 	if (_footer->height() != footerHeight) {
 		_footer->resize(_footer->width(), footerHeight);
 	}

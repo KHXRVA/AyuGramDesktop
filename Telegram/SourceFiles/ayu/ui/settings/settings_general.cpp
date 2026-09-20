@@ -8,6 +8,7 @@
 
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_build.h"
 #include "ayu/ui/settings/ayu_builder.h"
 #include "ayu/ui/settings/settings_ayu_utils.h"
 #include "ayu/ui/settings/settings_main.h"
@@ -182,6 +183,7 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setDisableOpenLinkWarning,
 	});
 
+	if (!AyuBuild::IsCommunity()) {
 	builder.addButton({
 		.id = u"ayu/customAppName"_q,
 		.title = tr::ayu_SettingsCustomAppName(),
@@ -203,6 +205,7 @@ void BuildQoLToggles(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 	});
 	builder.addDividerText(tr::ayu_SettingsCustomAppNameHint());
 	builder.addSkip();
+	}
 	ayu.addSettingToggle({
 		.id = u"ayu/hideReplyOnForward"_q,
 		.title = tr::ayu_SettingsHideReplyOnForward(),

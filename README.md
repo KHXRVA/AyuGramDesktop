@@ -4,6 +4,19 @@
 
 [ English  |   [Русский](README-RU.md) ]
 
+## About this fork
+
+Based on AyuGram Desktop with upstream Telegram Desktop 7.2.9 merged in. Extra features:
+
+- deleted messages are kept in the chat after restart, with media; per-chat exclusions, channel/comment toggles, bulk clear, jump to date
+- pinned reactions with custom emoji, always 7 in the quick strip
+- Message Shot: usernames, avatar modes, blur for avatars and names, Classic / Cards / Code window styles, gradient backgrounds
+- round video size and trimming, hide reply on forward, remove all my reactions, hide Wallet in the drawer
+- copy with metadata: Ctrl+Shift+C and "Copy as chat log" in the extended message menu (Ctrl/Shift + right click)
+- custom client name (regular build only)
+
+Community edition: configure with `-DAYU_COMMUNITY_BUILD=ON` (see `Telegram/cmake/telegram_options.cmake` for the tag, author and link). It has a fixed client name and shows the build author in the main menu, the about box, the version string, the executable properties and the AyuGram settings header.
+
 ## Features
 
 - Full ghost mode (flexible)

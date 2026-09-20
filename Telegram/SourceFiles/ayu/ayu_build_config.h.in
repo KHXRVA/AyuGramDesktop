@@ -1,0 +1,12 @@
+// This is the source code of AyuGram for Desktop.
+//
+// We do not and cannot prevent the use of our code,
+// but be respectful and credit the original author.
+//
+// Copyright @Radolyn, 2026
+#pragma once
+
+#define AYU_COMMUNITY_BUILD @AYU_COMMUNITY_BUILD_VALUE@
+#define AYU_BUILD_TAG "@AYU_BUILD_TAG@"
+#define AYU_BUILD_AUTHOR "@AYU_BUILD_AUTHOR@"
+#define AYU_BUILD_AUTHOR_LINK "@AYU_BUILD_AUTHOR_LINK@"

@@ -6,6 +6,8 @@
 // Copyright @Radolyn, 2026
 #include "ayu/ayu_settings.h"
 
+#include "ayu/ayu_build.h"
+
 #include "lang_auto.h"
 #include "tray.h"
 #include "ayu/ayu_ui_settings.h"
@@ -1158,16 +1160,20 @@ void AyuSettings::setCustomAppName(const QString &val) {
 
 QString AyuSettings::effectiveAppName() const {
 	const auto &custom = _customAppName.current();
-	return custom.isEmpty() ? QString::fromUtf8("AyuGram") : custom;
+	return (custom.isEmpty() || AyuBuild::IsCommunity())
+		? QString::fromUtf8("AyuGram")
+		: custom;
 }
 
 QString AyuSettings::effectiveAppNameFull() const {
 	const auto &custom = _customAppName.current();
-	return custom.isEmpty() ? QString::fromUtf8("AyuGram Desktop") : custom;
+	return (custom.isEmpty() || AyuBuild::IsCommunity())
+		? QString::fromUtf8("AyuGram Desktop")
+		: custom;
 }
 
 QString AyuSettings::brand(const QString &text) const {
-	if (_customAppName.current().isEmpty()) {
+	if (_customAppName.current().isEmpty() || AyuBuild::IsCommunity()) {
 		return text;
 	}
 	auto result = text;

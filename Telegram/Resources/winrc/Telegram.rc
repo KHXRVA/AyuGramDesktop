@@ -61,10 +61,18 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "Radolyn Labs"
+#ifdef AYU_COMMUNITY_BUILD
+            VALUE "FileDescription", "AyuGram Desktop - @wastelxnd build"
+#else
             VALUE "FileDescription", "AyuGram Desktop"
+#endif
             VALUE "FileVersion", "7.2.9.0"
             VALUE "LegalCopyright", "Copyright (C) 2014-2026"
+#ifdef AYU_COMMUNITY_BUILD
+            VALUE "ProductName", "AyuGram Desktop - @wastelxnd build"
+#else
             VALUE "ProductName", "AyuGram Desktop"
+#endif
             VALUE "ProductVersion", "7.2.9.0"
         END
     END

@@ -9201,6 +9201,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ContextExcludeDeleted" = "Don't save deleted here";
 "ayu_ContextIncludeDeleted" = "Save deleted here";
 "ayu_ContextCopyChatLog" = "Copy as chat log";
+"ayu_CommunityBuildBy" = "Build by {author} for AyuGram community";
 "ayu_ContextClearDeletedSelected" = "Clear deleted in selected";
 "ayu_ClearDeletedSelectedText#one" = "Clear saved deleted messages in {count} chat?";
 "ayu_ClearDeletedSelectedText#other" = "Clear saved deleted messages in {count} chats?";

@@ -6,6 +6,15 @@
 
 option(TDESKTOP_API_TEST "Use test API credentials." OFF)
 set(TDESKTOP_API_ID "0" CACHE STRING "Provide 'api_id' for the Telegram API access.")
+option(AYU_COMMUNITY_BUILD "Build the community edition with a fixed author signature." OFF)
+set(AYU_BUILD_TAG "wastelxnd" CACHE STRING "Short tag appended to the version in the community edition.")
+set(AYU_BUILD_AUTHOR "@wastelxnd" CACHE STRING "Author handle shown in the community edition.")
+set(AYU_BUILD_AUTHOR_LINK "https://t.me/wastelxnd" CACHE STRING "Author link opened from the community edition.")
+if (AYU_COMMUNITY_BUILD)
+    set(AYU_COMMUNITY_BUILD_VALUE 1)
+else()
+    set(AYU_COMMUNITY_BUILD_VALUE 0)
+endif()
 set(TDESKTOP_API_HASH "" CACHE STRING "Provide 'api_hash' for the Telegram API access.")
 
 if (TDESKTOP_API_TEST)

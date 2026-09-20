@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "boxes/about_box.h"
 
+#include "ayu/ayu_build.h"
+
 #include "ayu/ayu_settings.h"
 
 #include "base/platform/base_platform_info.h"
@@ -90,6 +92,14 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 	};
 
 	addText(Text());
+	if (AyuBuild::IsCommunity()) {
+		addText(tr::ayu_CommunityBuildBy(
+			lt_author,
+			rpl::single(Ui::Text::Link(
+				AyuBuild::Author(),
+				AyuBuild::AuthorLink())),
+			Ui::Text::WithEntities));
+	}
 
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 	box->addLeftButton(
@@ -138,6 +148,7 @@ namespace {
 	} else if (Platform::IsWindowsARM64()) {
 		result += " arm64";
 	}
+	result += AyuBuild::VersionSuffix();
 #ifdef _DEBUG
 	result += " DEBUG";
 #endif

@@ -9,6 +9,8 @@
 #include "settings/sections/settings_main.h"
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_build.h"
+#include "ui/text/text_utilities.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
@@ -73,12 +75,29 @@ void BuildVersionInfo(SectionBuilder &builder) {
 				) | rpl::map([](const QString &) {
 					return AyuSettings::getInstance().effectiveAppNameFull()
 						+ QString(" v")
-						+ QString::fromLatin1(AppVersionStr);
+						+ QString::fromLatin1(AppVersionStr)
+						+ AyuBuild::VersionSuffix();
 				}),
 				st::boxTitle),
 			.align = style::al_top,
 		};
 	});
+
+	if (AyuBuild::IsCommunity()) {
+		builder.add([](const WidgetContext &ctx) -> SectionBuilder::WidgetToAdd {
+			auto label = object_ptr<Ui::FlatLabel>(
+				ctx.container,
+				rpl::single(Ui::Text::Link(
+					QString::fromUtf8("Build by ") + AyuBuild::Author(),
+					AyuBuild::AuthorLink())),
+				st::centeredBoxLabel);
+			label->setLinksTrusted();
+			return {
+				.widget = std::move(label),
+				.align = style::al_top,
+			};
+		});
+	}
 
 	builder.addSkip();
 

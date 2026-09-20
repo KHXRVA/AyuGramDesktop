@@ -116,6 +116,8 @@ set(ayugram_files
         ayu/ayu_state.h
         ayu/ayu_settings.cpp
         ayu/ayu_settings.h
+        ayu/ayu_build.cpp
+        ayu/ayu_build.h
         ayu/ayu_lang.cpp
         ayu/ayu_lang.h
         ayu/ayu_infra.cpp
@@ -2615,6 +2617,18 @@ target_sources(Telegram PRIVATE ${entitlement_sources})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Telegram PREFIX Resources FILES ${entitlement_sources})
 
 target_include_directories(Telegram PRIVATE ${src_loc})
+
+configure_file(
+    ${src_loc}/ayu/ayu_build_config.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/gen/ayu_build_config.h
+    @ONLY
+)
+if (WIN32 AND AYU_COMMUNITY_BUILD)
+    set_source_files_properties(
+        ${res_loc}/winrc/Telegram.rc
+        PROPERTIES COMPILE_DEFINITIONS AYU_COMMUNITY_BUILD
+    )
+endif()
 
 target_compile_definitions(Telegram
 PRIVATE
