@@ -12,7 +12,7 @@ Based on AyuGram Desktop with upstream Telegram Desktop 7.2.9 merged in (fixes "
 - kept in the chat after restart, including media
 - separate toggles for saving deleted messages in channels and in comments
 - per-chat exclusions: "Save deleted here" / "Don't save deleted here" in the chat menu, exclusions list in settings
-- bulk clear of saved deleted messages
+- bulk clear: for chats selected in the chat list or for all channels at once
 - jump to date (calendar) in the deleted messages viewer
 
 **Reactions**
@@ -25,9 +25,9 @@ Based on AyuGram Desktop with upstream Telegram Desktop 7.2.9 merged in (fixes "
 - messages aligned by common bounds
 - styles: Classic, Cards, Code window; gradient backgrounds
 
-**Media**
-- round video size 100–300%
-- trimming of round videos before sending
+**Video messages**
+- size of round videos in chat: 100–300%
+- editor before sending: trim a recorded round video the same way as a voice message, the clip is re-encoded to the selected range
 
 **Copying**
 - Ctrl+C: single message without metadata, several messages as a chat log
