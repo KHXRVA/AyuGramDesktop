@@ -3953,6 +3953,9 @@ void Session::photoApplyFields(
 			: found;
 	}();
 	const auto find = [&](const QByteArray &levels) {
+		if (sizes.isEmpty()) {
+			return sizes.end();
+		}
 		const auto kInvalidIndex = int(levels.size());
 		const auto level = [&](const MTPPhotoSize &size) {
 			const auto letter = size.match([](const MTPDphotoSizeEmpty &) {
