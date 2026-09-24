@@ -1869,6 +1869,10 @@ bool HistoryItem::isTtlCoveredMedia() const {
 	const auto media = _media.get();
 	if (!media || !media->ttlSeconds()) {
 		return false;
+	} else if (isBurnt()
+		&& !Has<HistoryServiceSelfDestruct>()
+		&& AyuSettings::getInstance().saveDeletedMessages()) {
+		return false;
 	} else if (media->photo()) {
 		return true;
 	} else if (const auto document = media->document()) {
@@ -2919,12 +2923,14 @@ void HistoryItem::clearMediaAsExpired() {
 		return;
 	}
 
+	unarmMediaDestroy();
 	const auto &settings = AyuSettings::getInstance();
 	if (settings.saveDeletedMessages()) {
+		RemoveComponents(HistoryServiceSelfDestruct::Bit());
+		_history->owner().requestItemViewRefresh(this);
 		return;
 	}
 
-	unarmMediaDestroy();
 	auto &owner = _history->owner();
 	if (const auto document = media->document()) {
 		document->cancel();

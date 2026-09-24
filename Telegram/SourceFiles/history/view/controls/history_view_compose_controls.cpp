@@ -3414,6 +3414,8 @@ void ComposeControls::fieldChanged() {
 	const auto hideExtra = hideExtraButtons()
 		|| isEditingMessage()
 		|| textExceedsMaxSize();
+	const auto ttlAllowed = AyuSettings::getInstance()
+		.showAutoDeleteButtonInMessageField();
 	const auto refreshControls = commandShown
 		|| menuRefreshed
 		|| likeShown
@@ -3422,7 +3424,7 @@ void ComposeControls::fieldChanged() {
 			&& !hideExtra))
 		|| (silentVisible != (_silent && !hideExtra))
 		|| (scheduledVisible != (_scheduled && !hideExtra))
-		|| (ttlVisible != (_ttlInfo && !hideExtra));
+		|| (ttlVisible != (_ttlInfo && !hideExtra && ttlAllowed));
 	if (refreshControls) {
 		updateControlsVisibility();
 		updateControlsGeometry(_wrap->size());
@@ -5141,9 +5143,6 @@ void ComposeControls::updateControlsVisibility() {
 	}
 	if (_editStars) {
 		_editStars->show();
-	}
-	if (_ttlInfo) {
-		_ttlInfo->setVisible(!hide);
 	}
 	if (_sendAs) {
 		_sendAs->show();

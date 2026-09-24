@@ -22,6 +22,7 @@
 #include "core/application.h"
 #include "base/unixtime.h"
 #include "core/mime_type.h"
+#include "data/components/ephemeral_messages.h"
 #include "data/data_channel.h"
 #include "data/data_chat.h"
 #include "data/data_document.h"
@@ -1626,4 +1627,26 @@ void applyGhostScheduling(
 			: delaySeconds;
 		options.scheduled = base::unixtime::now() + delay;
 	}
+}
+
+void applyGhostScheduling(
+		Api::SendAction &action,
+		const QString &text,
+		int delaySeconds) {
+	const auto history = action.history;
+	const auto session = &history->session();
+	const auto replyTo = action.replyTo.messageId
+		? session->data().message(action.replyTo.messageId)
+		: nullptr;
+	if ((replyTo && replyTo->isEphemeral())
+		|| session->ephemeralMessages().hasEphemeralCommand(
+			history->peer,
+			text)) {
+		return;
+	}
+	applyGhostScheduling(
+		session,
+		action.options,
+		delaySeconds,
+		history->peer);
 }

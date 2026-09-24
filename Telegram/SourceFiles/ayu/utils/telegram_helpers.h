@@ -131,3 +131,8 @@ void applyGhostScheduling(
 	Api::SendOptions &options,
 	int delaySeconds = 12,
 	PeerData *peer = nullptr);
+
+void applyGhostScheduling(
+	Api::SendAction &action,
+	const QString &text = QString(),
+	int delaySeconds = 12);
