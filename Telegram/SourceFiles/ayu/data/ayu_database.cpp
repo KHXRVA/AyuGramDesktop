@@ -14,6 +14,9 @@
 #include <mutex>
 
 using namespace sqlite_orm;
+
+std::mutex databaseMutex;
+
 auto storage = make_storage(
 	"./tdata/ayudata.db",
 	make_table<SchemaVersion>(
