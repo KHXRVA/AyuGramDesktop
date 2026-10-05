@@ -716,7 +716,7 @@ bool UnpackUpdate(const QString &filepath) {
 	QByteArray compressed = input.readAll();
 	input.close();
 
-	if (Updates::IsV2UpdateFile(compressed)) {
+	if (false && Updates::IsV2UpdateFile(compressed)) {
 		if (UnpackUpdateV2(filepath, compressed)) {
 			return true;
 		} else if (BuildIsCanary) {
@@ -1969,6 +1969,7 @@ void Updater::start(bool forceWait) {
 		}
 #endif // !Q_OS_WIN && !Q_OS_MAC
 	} else if (sendRequest) {
+		_mtpImplementation.failed = true;
 		if (BuildIsCanary) {
 			// Canary builds discover updates only through their own MTP
 			// channels, the v1 HTTP feed serves other channels.
