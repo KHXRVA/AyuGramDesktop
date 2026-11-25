@@ -71,8 +71,11 @@ jobs:
       - name: Free disk space
         if: steps.ready.outputs.cache-hit != 'true'
         run: |
-          Remove-Item "C:\Android", "C:\Program Files\dotnet", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "C:\Program Files\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL", "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R" -Recurse -Force -ErrorAction SilentlyContinue
-          Get-PSDrive C | Format-Table Used, Free
+          Remove-Item "C:\Android", "C:\Program Files\dotnet", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "$env:LOCALAPPDATA\Docker", "C:\ProgramData\DockerDesktop", "C:\Program Files\PostgreSQL", "C:\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R", "C:\rtools*", "C:\Program Files\Google\Chrome*", "C:\Program Files\Mozilla Firefox*", "C:\ProgramData\Package Cache" -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem "C:\ProgramData\Microsoft\VisualStudio\Packages" -Exclude _Instances -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item C:\hostedtoolcache\windows\Go*, C:\hostedtoolcache\windows\Ruby*, C:\hostedtoolcache\windows\PyPy*, C:\hostedtoolcache\windows\Java_*, C:\hostedtoolcache\windows\NuGet* -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host ('::notice::Free: ' + ((Get-PSDrive -PSProvider FileSystem | ForEach-Object { '{0} {1:N1} GB' -f $_.Name, ($_.Free / 1GB) }) -join ', '))
           exit 0
 
       - name: Restore partial libraries
@@ -105,8 +108,7 @@ jobs:
             'set "PSModulePath="',
             'set "SKIP_DUMPSYMS=1"',
             'if not exist ThirdParty\jom\jom.exe del /q ThirdParty\cache_keys\jom',
-            "call tdesktop\Telegram\build\prepare\win.bat silent > `"$env:RUNNER_TEMP\libs.log`" 2>&1 && exit /b 0",
-            "(dir ThirdParty & dir ThirdParty\jom & where jom & set PATH) >> `"$env:RUNNER_TEMP\libs.log`" 2>&1",
+            "python tdesktop\.github\scripts\build_libs.py Libraries\win64 `"$env:RUNNER_TEMP\libs.log`" tdesktop\Telegram\build\prepare\win.bat silent && exit /b 0",
             'exit /b 1'
           ) | Set-Content $bat -Encoding ascii
           $process = Start-Process cmd -ArgumentList '/c', $bat -NoNewWindow -PassThru
@@ -139,7 +141,7 @@ jobs:
         shell: bash
         run: |
           cd "$USERPROFILE/TBuild/Libraries/win64"
-          find . '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/src/wallet_engine/*' ')' -type f ')' -o -empty ')' -delete || true
+          find . '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/src/wallet_engine/*' -o '(' '(' -path './tlottie/*' -o -path './wallet-engine/*' ')' ! -path '*/target/*' ')' ')' -type f ')' -o '(' -type d -empty ! -path './tlottie/*' ! -path './wallet-engine/*' ')' ')' -delete || true
           du -sh . ../../ThirdParty || true
 
       - name: Save ready libraries
@@ -193,8 +195,11 @@ jobs:
 
       - name: Free disk space
         run: |
-          Remove-Item "C:\Android", "C:\Miniconda", "C:\msys64", "C:\Program Files\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL", "C:\ghcup", "C:\cabal", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\Program Files\R" -Recurse -Force -ErrorAction SilentlyContinue
-          Get-PSDrive C | Format-Table Used, Free
+          Remove-Item "C:\Android", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "$env:LOCALAPPDATA\Docker", "C:\ProgramData\DockerDesktop", "C:\Program Files\PostgreSQL", "C:\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R", "C:\rtools*", "C:\Program Files\Google\Chrome*", "C:\Program Files\Mozilla Firefox*", "C:\ProgramData\Package Cache" -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem "C:\ProgramData\Microsoft\VisualStudio\Packages" -Exclude _Instances -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item C:\hostedtoolcache\windows\Go*, C:\hostedtoolcache\windows\Ruby*, C:\hostedtoolcache\windows\PyPy*, C:\hostedtoolcache\windows\Java_*, C:\hostedtoolcache\windows\NuGet* -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host ('::notice::Free: ' + ((Get-PSDrive -PSProvider FileSystem | ForEach-Object { '{0} {1:N1} GB' -f $_.Name, ($_.Free / 1GB) }) -join ', '))
           exit 0
 
       - name: Cache key
