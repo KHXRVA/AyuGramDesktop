@@ -64,4 +64,7 @@ set(desktop_app_skip_libs
 )
 
 add_subdirectory(cmake)
+if (WIN32)
+    target_link_libraries(external_ffmpeg INTERFACE mfuuid)
+endif()
 add_subdirectory(Telegram)

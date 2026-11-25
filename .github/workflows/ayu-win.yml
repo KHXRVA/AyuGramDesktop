@@ -244,8 +244,8 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.TBUILD }}\tdesktop\out
-          key: out-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: out-${{ steps.key.outputs.value }}-
+          key: out-ninja-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: out-ninja-${{ steps.key.outputs.value }}-
 
       - name: Restore source timestamps
         run: python "$env:TBUILD\tdesktop\.github\scripts\source_mtime.py" restore "$env:TBUILD\tdesktop"
@@ -263,7 +263,7 @@ jobs:
           @(
             '@echo off',
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
-            'call configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON -D AYU_COMMUNITY_BUILD=ON || exit /b 1'
+            'call configure.bat -G "Ninja Multi-Config" -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON -D AYU_COMMUNITY_BUILD=ON || exit /b 1'
           ) | Set-Content "$env:RUNNER_TEMP\configure.bat" -Encoding ascii
           $env:API_ID = $env:API_ID.Trim()
           $env:API_HASH = $env:API_HASH.Trim()
@@ -275,11 +275,14 @@ jobs:
 
       - name: Build community edition
         id: community
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           @(
             '@echo off',
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
-            'cmake --build ..\out --config Release --target Telegram -- /m:2 /p:CL_MPCount=4 /nologo /v:minimal /fl /flp:logfile=%RUNNER_TEMP%\build.log;verbosity=minimal'
+            'cmake --build ..\out --config Release --target Telegram -- -k 0 > %RUNNER_TEMP%\build.log 2>&1'
           ) | Set-Content "$env:RUNNER_TEMP\community.bat" -Encoding ascii
           $process = Start-Process cmd -ArgumentList '/c', "$env:RUNNER_TEMP\community.bat" -NoNewWindow -PassThru
           $null = $process.Handle
@@ -307,7 +310,7 @@ jobs:
             '@echo off',
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
             'cmake -S .. -B ..\out -D AYU_COMMUNITY_BUILD=OFF || exit /b 1',
-            'cmake --build ..\out --config Release --target Telegram -- /m:2 /p:CL_MPCount=4 /nologo /v:minimal'
+            'cmake --build ..\out --config Release --target Telegram'
           ) | Set-Content "$env:RUNNER_TEMP\regular.bat" -Encoding ascii
           cmd /c "$env:RUNNER_TEMP\regular.bat"
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -329,11 +332,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: ${{ env.TBUILD }}\tdesktop\out
-          key: out-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - uses: actions/upload-artifact@v7
-        if: always() && steps.community.outcome == 'failure'
-        with:
-          name: build-log
-          path: ${{ runner.temp }}\build.log
-          retention-days: 7
+          key: out-ninja-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
