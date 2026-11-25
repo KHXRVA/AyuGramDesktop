@@ -215,10 +215,14 @@ jobs:
 
       - name: Free disk space
         run: |
-          Remove-Item "C:\Android", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "$env:LOCALAPPDATA\Docker", "C:\ProgramData\DockerDesktop", "C:\Program Files\PostgreSQL", "C:\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL" -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R", "C:\rtools*", "C:\Program Files\Google\Chrome*", "C:\Program Files\Mozilla Firefox*", "C:\ProgramData\Package Cache" -Recurse -Force -ErrorAction SilentlyContinue
-          Get-ChildItem "C:\ProgramData\Microsoft\VisualStudio\Packages" -Exclude _Instances -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item C:\hostedtoolcache\windows\Go*, C:\hostedtoolcache\windows\Ruby*, C:\hostedtoolcache\windows\PyPy*, C:\hostedtoolcache\windows\Java_*, C:\hostedtoolcache\windows\NuGet* -Recurse -Force -ErrorAction SilentlyContinue
+          $free = (Get-PSDrive C).Free / 1GB
+          Write-Host ('::notice::Before cleanup: {0:N1} GB' -f $free)
+          if ($free -lt 35) {
+            Remove-Item "C:\Android", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "$env:LOCALAPPDATA\Docker", "C:\ProgramData\DockerDesktop", "C:\Program Files\PostgreSQL", "C:\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL" -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R", "C:\rtools*", "C:\Program Files\Google\Chrome*", "C:\Program Files\Mozilla Firefox*", "C:\ProgramData\Package Cache" -Recurse -Force -ErrorAction SilentlyContinue
+            Get-ChildItem "C:\ProgramData\Microsoft\VisualStudio\Packages" -Exclude _Instances -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item C:\hostedtoolcache\windows\Go*, C:\hostedtoolcache\windows\Ruby*, C:\hostedtoolcache\windows\PyPy*, C:\hostedtoolcache\windows\Java_*, C:\hostedtoolcache\windows\NuGet* -Recurse -Force -ErrorAction SilentlyContinue
+          }
           Write-Host ('::notice::Free: ' + ((Get-PSDrive -PSProvider FileSystem | ForEach-Object { '{0} {1:N1} GB' -f $_.Name, ($_.Free / 1GB) }) -join ', '))
           exit 0
 

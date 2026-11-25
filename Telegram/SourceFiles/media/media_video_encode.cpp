@@ -2929,7 +2929,6 @@ TranscodeResult TranscodeVideo(
 	};
 	auto attempt = attemptWith(false);
 	if (attempt.hardware && !cancelled && attempt.result.empty()) {
-		LOG(("Encode Warning: Hardware encoding failed, using software."));
 		attempt = attemptWith(true);
 	}
 	return attempt.result;

@@ -52,7 +52,11 @@ def main():
                 if count[source] <= 12:
                     found.append(line)
         if found:
-            print("::notice::%d unique errors, %d shown" % (len(seen), len(found)))
+            steps = [x for x in (re.match(r"\[\d+/\d+\]", line) for line in lines) if x]
+            print("::notice::%d unique errors, %d shown, progress %s" % (
+                len(seen),
+                len(found),
+                steps[-1].group() if steps else "unknown"))
             chunks = split(found)
             emit(chunks)
             emit(chunks[MAX_ANNOTATIONS:], "warning")
