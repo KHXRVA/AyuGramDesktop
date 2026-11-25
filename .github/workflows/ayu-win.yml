@@ -102,7 +102,11 @@ jobs:
             '@echo off',
             "call `"$vs\VC\Auxiliary\Build\vcvarsall.bat`" x64 10.0.26100.0 -vcvars_ver=14.44 || exit /b 1",
             "cd /d `"$env:TBUILD`"",
-            "call tdesktop\Telegram\build\prepare\win.bat silent > `"$env:RUNNER_TEMP\libs.log`" 2>&1 || exit /b 1"
+            'set "PSModulePath="',
+            'if not exist ThirdParty\jom\jom.exe del /q ThirdParty\cache_keys\jom',
+            "call tdesktop\Telegram\build\prepare\win.bat silent > `"$env:RUNNER_TEMP\libs.log`" 2>&1 && exit /b 0",
+            "(dir ThirdParty & dir ThirdParty\jom & where jom & set PATH) >> `"$env:RUNNER_TEMP\libs.log`" 2>&1",
+            'exit /b 1'
           ) | Set-Content $bat -Encoding ascii
           $process = Start-Process cmd -ArgumentList '/c', $bat -NoNewWindow -PassThru
           $null = $process.Handle

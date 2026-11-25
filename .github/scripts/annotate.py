@@ -29,6 +29,7 @@ def main():
     mode, path = sys.argv[1:]
     with open(path, encoding="utf-8", errors="replace") as f:
         lines = [line.rstrip() for line in f if line.strip()]
+    lines = [line for line in lines if not line.startswith("Updating files:")]
     print("\n".join(lines[-400:]))
     if mode == "errors":
         seen = set()
