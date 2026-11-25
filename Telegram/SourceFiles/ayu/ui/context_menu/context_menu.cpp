@@ -1164,7 +1164,7 @@ void AddCopyChatLogAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
 				entries.push_back({ item, nullptr });
 			}
 			TextUtilities::SetClipboardText(
-				HistorySelectedItemsText(entries, true));
+				HistorySelectedItemsTextParts(entries, true).composed());
 		},
 		&st::menuIconCopy);
 }
