@@ -28,3 +28,10 @@ PUBLIC
     desktop-app::lib_ui
     desktop-app::external_ffmpeg
 )
+
+if (WIN32)
+    target_link_libraries(lib_ffmpeg
+    PUBLIC
+        mfuuid
+    )
+endif()

@@ -1210,7 +1210,8 @@ winarm:
     SET "ARCH_PARAM=--arch=aarch64"
 win:
 depends:patches/build_ffmpeg_win.sh
-    bash --login ../patches/build_ffmpeg_win.sh
+    sed "s/--enable-encoder=libopenh264/--enable-mediafoundation --enable-nvenc --enable-encoder=h264_mf --enable-encoder=h264_nvenc --enable-encoder=libopenh264/" ../patches/build_ffmpeg_win.sh > ../patches/build_ffmpeg_win_hw.sh
+    bash --login ../patches/build_ffmpeg_win_hw.sh
 mac:
     export PKG_CONFIG_PATH=$USED_PREFIX/lib/pkgconfig
 

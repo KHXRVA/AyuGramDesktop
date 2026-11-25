@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 
+#include <string_view>
 #include <thread>
 
 extern "C" {
@@ -56,6 +57,8 @@ constexpr auto kSkippedFrameSide = 2;
 
 // MAX_FRAME_RATE in openh264, a faster source overshoots by the ratio.
 constexpr auto kRateControlFps = 60.;
+
+constexpr auto kMinHardwareArea = 640 * 480;
 
 // Measured: silence costs this much of the nominal 64 kbps.
 constexpr auto kSilentAudioBitrate = 7'000;
@@ -163,11 +166,6 @@ struct ColorDescription {
 		AVPixelFormat pixelFormat,
 		float64 avgFps,
 		Fn<bool(not_null<AVCodecContext*>)> setup) {
-	const auto stream = avformat_new_stream(output, encoderCodec);
-	if (!stream) {
-		LogError(u"avformat_new_stream"_q, u"video"_q);
-		return {};
-	}
 	auto encoder = CodecPointer(avcodec_alloc_context3(encoderCodec));
 	if (!encoder) {
 		LogError(u"avcodec_alloc_context3"_q, u"video"_q);
@@ -202,6 +200,17 @@ struct ColorDescription {
 		LogError(u"avcodec_open2"_q, error, u"video"_q);
 		return {};
 	}
+	if ((encoder->flags & AV_CODEC_FLAG_GLOBAL_HEADER)
+		&& !encoder->extradata_size
+		&& (encoderCodec->id == AV_CODEC_ID_H264)) {
+		LogError(u"extradata"_q, QString::fromUtf8(encoderCodec->name));
+		return {};
+	}
+	const auto stream = avformat_new_stream(output, encoderCodec);
+	if (!stream) {
+		LogError(u"avformat_new_stream"_q, u"video"_q);
+		return {};
+	}
 	error = AvErrorWrap(avcodec_parameters_from_context(
 		stream->codecpar,
 		encoder.get()));
@@ -214,6 +223,60 @@ struct ColorDescription {
 		stream->avg_frame_rate = av_d2q(avgFps, 100'000);
 	}
 	return { stream, std::move(encoder) };
+}
+
+[[nodiscard]] bool SetupHardwareH264(not_null<AVCodecContext*> encoder) {
+	const auto set = [&](const char *key, const char *value) {
+		const auto error = AvErrorWrap(av_opt_set(
+			encoder->priv_data,
+			key,
+			value,
+			0));
+		if (error) {
+			LogError(u"av_opt_set"_q, error, QString::fromUtf8(key));
+		}
+		return !error;
+	};
+	const auto bitrate = encoder->bit_rate;
+	encoder->max_b_frames = 0;
+	encoder->rc_max_rate = bitrate + bitrate / 2;
+	encoder->rc_buffer_size = int(std::min(
+		bitrate * 2,
+		int64(std::numeric_limits<int>::max())));
+	return (std::string_view(encoder->codec->name) == "h264_nvenc")
+		? (set("preset", "p5") && set("rc", "vbr"))
+		: (set("hw_encoding", "1") && set("rate_control", "pc_vbr"));
+}
+
+[[nodiscard]] VideoEncoder CreateHardwareH264Encoder(
+		not_null<AVFormatContext*> output,
+		QSize size,
+		int64 bitrate,
+		float64 fps,
+		ColorDescription color) {
+	if (size.width() * int64(size.height()) < kMinHardwareArea) {
+		return {};
+	}
+	for (const auto name : { "h264_nvenc", "h264_mf" }) {
+		const auto codec = avcodec_find_encoder_by_name(name);
+		if (!codec) {
+			continue;
+		}
+		auto result = CreateVideoEncoder(
+			output,
+			codec,
+			size,
+			bitrate,
+			fps,
+			color,
+			AV_PIX_FMT_YUV420P,
+			0.,
+			SetupHardwareH264);
+		if (result.codec) {
+			return result;
+		}
+	}
+	return {};
 }
 
 [[nodiscard]] VideoEncoder CreateH264Encoder(
@@ -2105,12 +2168,14 @@ namespace {
 struct ReadPlan {
 	VideoSource source;
 	bool ignoreEditList = false;
+	bool software = false;
 };
 
 struct TranscodeAttempt {
 	TranscodeResult result;
 	// Demuxer restarts timeline for each edit list entry.
 	bool timelineRestarted = false;
+	bool hardware = false;
 };
 
 // Range was measured in the edit list timeline, so it is dropped with it.
@@ -2125,7 +2190,8 @@ struct TranscodeAttempt {
 
 [[nodiscard]] TranscodeAttempt TranscodeVideoAttempt(
 		const ReadPlan &readPlan,
-		const Fn<bool(float64)> &progress) {
+		const Fn<bool(float64)> &progress,
+		not_null<bool*> hardware) {
 	const auto &source = readPlan.source;
 	const auto sourceSize = !source.bytes.isEmpty()
 		? int64(source.bytes.size())
@@ -2330,9 +2396,31 @@ struct TranscodeAttempt {
 		const auto crf = source.webmCrf
 			? std::clamp(*source.webmCrf, 0, 63)
 			: kWebmStickerCrf;
-		auto video = webm
-			? CreateVp9WebmEncoder(output.get(), target, color, crf, fps)
-			: CreateH264Encoder(output.get(), target, bitrate, fps, color);
+		auto video = VideoEncoder();
+		if (webm) {
+			video = CreateVp9WebmEncoder(
+				output.get(),
+				target,
+				color,
+				crf,
+				fps);
+		} else if (!readPlan.software) {
+			video = CreateHardwareH264Encoder(
+				output.get(),
+				target,
+				bitrate,
+				fps,
+				color);
+			*hardware = (video.codec != nullptr);
+		}
+		if (!webm && !video.codec) {
+			video = CreateH264Encoder(
+				output.get(),
+				target,
+				bitrate,
+				fps,
+				color);
+		}
 		if (!video.codec) {
 			return {};
 		}
@@ -2813,9 +2901,36 @@ struct TranscodeAttempt {
 TranscodeResult TranscodeVideo(
 		const VideoSource &source,
 		Fn<bool(float64)> progress) {
-	auto attempt = TranscodeVideoAttempt({ .source = source }, progress);
-	if (attempt.timelineRestarted) {
-		attempt = TranscodeVideoAttempt(SampleTablePlan(source), progress);
+	auto cancelled = false;
+	const auto guarded = [&](float64 value) {
+		if (progress && !progress(value)) {
+			cancelled = true;
+		}
+		return !cancelled;
+	};
+	const auto attemptWith = [&](bool software) {
+		auto plan = ReadPlan{ .source = source, .software = software };
+		auto hardware = false;
+		auto attempt = TranscodeVideoAttempt(
+			std::move(plan),
+			guarded,
+			&hardware);
+		if (attempt.timelineRestarted) {
+			auto sample = SampleTablePlan(source);
+			sample.software = software;
+			hardware = false;
+			attempt = TranscodeVideoAttempt(
+				std::move(sample),
+				guarded,
+				&hardware);
+		}
+		attempt.hardware = hardware;
+		return attempt;
+	};
+	auto attempt = attemptWith(false);
+	if (attempt.hardware && !cancelled && attempt.result.empty()) {
+		LOG(("Encode Warning: Hardware encoding failed, using software."));
+		attempt = attemptWith(true);
 	}
 	return attempt.result;
 }
