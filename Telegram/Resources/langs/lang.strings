@@ -9911,7 +9911,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ContextNotifyFirstOnly" = "Notify only about first message";
 "ayu_ContextNotifyAll" = "Notify about every message";
 "ayu_FiltersHideJoinMessages" = "Hide join messages";
-"ayu_MessageDetailsEncoderPC" = "Encoder";
+"ayu_FilterRounds" = "Video messages";
+"ayu_TranslatorSubtitle" = "Translate Messages";
 "ayu_ContextCopyChatLog" = "Copy as chat log";
 "ayu_ContextClearDeletedSelected" = "Clear deleted in selected";
 "ayu_ClearDeletedSelectedText#one" = "Clear saved deleted messages in {count} chat?";

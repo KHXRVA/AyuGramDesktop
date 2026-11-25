@@ -4327,7 +4327,7 @@ void ListWidget::keyPressEvent(QKeyEvent *e) {
 		&& (hasSelectedText() || hasSelectedItems())
 		&& !showCopyRestriction()
 		&& !hasCopyRestrictionForSelected()) {
-		copySelectedText(true);
+		copySelectedText(false, true);
 	} else if (e == QKeySequence::Copy
 		&& canCopySelected()
 		&& !showCopyRestriction()

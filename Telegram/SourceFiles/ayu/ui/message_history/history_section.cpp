@@ -282,7 +282,7 @@ void FixedBar::showFilterMenu() {
 	add(Filter::Media, tr::lng_media_type_media(tr::now), &st::menuIconPhoto);
 	add(Filter::Gifs, tr::lng_media_type_gifs(tr::now), &st::menuIconGif);
 	add(Filter::Voice, tr::lng_media_type_audios(tr::now), &st::messageFieldVoiceIcon);
-	add(Filter::Rounds, tr::lng_media_type_rounds(tr::now), &st::menuIconVideoChat);
+	add(Filter::Rounds, tr::ayu_FilterRounds(tr::now), &st::menuIconVideoChat);
 	add(Filter::Files, tr::lng_media_type_files(tr::now), &st::menuIconFile);
 	_filterMenu->popup(QCursor::pos());
 }

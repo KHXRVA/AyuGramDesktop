@@ -26,6 +26,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_menu_icons.h"
 #include "styles/style_widgets.h"
 
+// AyuGram includes
+#include "styles/style_ayu_icons.h"
+
+
 namespace {
 
 class SelectableContactRow final : public PeerListRow {
@@ -44,7 +48,20 @@ public:
 		int y,
 		int outerWidth) override;
 
+	QSize rightActionSize() const override;
+	QMargins rightActionMargins() const override;
+	bool rightActionDisabled() const override;
+	void rightActionPaint(
+		Painter &p,
+		int x,
+		int y,
+		int outerWidth,
+		bool selected,
+		bool actionSelected) override;
+
 private:
+	[[nodiscard]] bool isMutualContact() const;
+
 	const Fn<bool()> _selecting;
 	Ui::RoundCheckbox _check;
 
@@ -81,6 +98,51 @@ void SelectableContactRow::paintUserpicOverlay(
 	_check.paint(p, x + shift, y + shift, outerWidth);
 }
 
+bool SelectableContactRow::isMutualContact() const {
+	const auto user = peer()->asUser();
+	return user && (user->flags() & UserDataFlag::MutualContact);
+}
+
+QSize SelectableContactRow::rightActionSize() const {
+	return isMutualContact()
+		? QSize(
+			st::ayuContactsMutualIcon.width(),
+			st::ayuContactsMutualIcon.height())
+		: QSize();
+}
+
+QMargins SelectableContactRow::rightActionMargins() const {
+	const auto size = rightActionSize();
+	if (size.isEmpty()) {
+		return QMargins();
+	}
+	const auto right = st::contactsWithStories.item.photoPosition.x();
+	return QMargins(
+		right,
+		(st::contactsWithStories.item.height - size.height()) / 2,
+		right,
+		0);
+}
+
+bool SelectableContactRow::rightActionDisabled() const {
+	return _selecting();
+}
+
+void SelectableContactRow::rightActionPaint(
+		Painter &p,
+		int x,
+		int y,
+		int outerWidth,
+		bool selected,
+		bool actionSelected) {
+	if (!isMutualContact()) {
+		return;
+	}
+	(selected || actionSelected
+		? st::ayuContactsMutualIconOver
+		: st::ayuContactsMutualIcon).paint(p, x, y, outerWidth);
+}
+
 class ContactsListController final
 	: public ContactsBoxController
 	, public base::has_weak_ptr {
@@ -93,6 +155,7 @@ public:
 
 	void rowClicked(not_null<PeerListRow*> row) override;
 	void rowMiddleClicked(not_null<PeerListRow*> row) override;
+	void rowRightActionClicked(not_null<PeerListRow*> row) override;
 	base::unique_qptr<Ui::PopupMenu> rowContextMenu(
 		QWidget *parent,
 		not_null<PeerListRow*> row) override;
@@ -170,6 +233,19 @@ std::unique_ptr<PeerListRow> ContactsListController::createRow(
 		result->setSelected(true, anim::type::instant);
 	}
 	return result;
+}
+
+void ContactsListController::rowRightActionClicked(
+		not_null<PeerListRow*> row) {
+	if (selecting()) {
+		rowClicked(row);
+		return;
+	}
+	const auto user = row->peer()->asUser();
+	if (user && (user->flags() & UserDataFlag::MutualContact)) {
+		delegate()->peerListUiShow()->showToast(
+			tr::ayu_MutualContactInfo(tr::now));
+	}
 }
 
 void ContactsListController::rowClicked(not_null<PeerListRow*> row) {
