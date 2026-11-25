@@ -164,6 +164,9 @@ public:
 	void applyMaybeLast(not_null<HistoryItem*> item);
 	void applyItemAdded(not_null<HistoryItem*> item);
 	void applyItemRemoved(MsgId id);
+	void trackHiddenUnread(not_null<HistoryItem*> item);
+	void setHiddenUnread(base::flat_set<MsgId> ids);
+	[[nodiscard]] int hiddenUnreadCount() const;
 	void maybeSetLastMessage(not_null<HistoryItem*> item);
 
 	[[nodiscard]] PeerNotifySettings &notify() {
@@ -246,6 +249,8 @@ private:
 	std::optional<HistoryItem*> _lastServerMessage;
 	std::optional<HistoryItem*> _chatListMessage;
 	base::flat_set<FullMsgId> _requestedGroups;
+
+	base::flat_set<MsgId> _hiddenUnread;
 
 	rpl::lifetime _lifetime;
 

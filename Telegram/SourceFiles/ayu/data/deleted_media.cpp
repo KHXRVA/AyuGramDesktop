@@ -9,6 +9,7 @@
 #include "ayu/ayu_settings.h"
 #include "ayu/data/ayu_database.h"
 
+#include "base/call_delayed.h"
 #include "core/file_location.h"
 #include "core/version.h"
 #include "settings.h"
@@ -27,12 +28,15 @@
 #include "ui/image/image.h"
 
 #include <QBuffer>
+#include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QMimeDatabase>
 
+#include <atomic>
 #include <map>
 
 namespace AyuMessages {
@@ -177,6 +181,8 @@ enum class MediaKind {
 };
 
 constexpr auto kMaxSavedFileSize = int64(512 * 1024 * 1024);
+constexpr auto kCleanupDelay = crl::time(60 * 1000);
+constexpr auto kCleanupMegabyte = int64(1024 * 1024);
 constexpr auto kStreamPartSize = int64(128 * 1024);
 constexpr auto kStreamInSlice = int64(64) * kStreamPartSize;
 constexpr auto kStreamMaxOnlyInHeader = int64(80) * kStreamPartSize;
@@ -398,6 +404,7 @@ void saveMediaForMessage(not_null<HistoryItem*> item, AyuMessageBase &message) {
 	if (!media) {
 		return;
 	}
+	scheduleSavedMediaCleanup();
 	const auto folder = MessageFolder(message.userId, message.dialogId);
 	const auto base = folder + QString::number(message.messageId);
 
@@ -468,6 +475,7 @@ void fetchDeletedMedia(
 	if (!media) {
 		return;
 	}
+	scheduleSavedMediaCleanup();
 	const auto folder = MessageFolder(message.userId, message.dialogId);
 	const auto base = folder + QString::number(message.messageId);
 	auto pending = PendingMedia{
@@ -666,6 +674,78 @@ void removeSavedMediaForDialog(ID userId, ID dialogId) {
 	if (folder.startsWith(mediaRootPath())) {
 		QDir(folder).removeRecursively();
 	}
+}
+
+void cleanupSavedMedia() {
+	const auto &settings = AyuSettings::getInstance();
+	const auto limit = settings.deletedMediaLimit() * kCleanupMegabyte;
+	const auto days = settings.deletedMediaDays();
+	if (limit <= 0 && days <= 0) {
+		return;
+	}
+	static auto Running = std::atomic<bool>(false);
+	if (Running.exchange(true)) {
+		return;
+	}
+	crl::async([=, root = mediaRootPath()] {
+		struct Entry {
+			QString path;
+			int64 size = 0;
+			qint64 time = 0;
+		};
+		auto entries = std::vector<Entry>();
+		auto total = int64();
+		const auto oldest = (days > 0)
+			? QDateTime::currentDateTime().addDays(-days).toMSecsSinceEpoch()
+			: qint64();
+		auto i = QDirIterator(
+			root,
+			QDir::Files | QDir::NoSymLinks,
+			QDirIterator::Subdirectories);
+		while (i.hasNext()) {
+			i.next();
+			const auto info = i.fileInfo();
+			const auto created = info.birthTime();
+			const auto time = std::max(
+				info.lastModified().toMSecsSinceEpoch(),
+				created.isValid() ? created.toMSecsSinceEpoch() : qint64());
+			if (oldest > 0 && time < oldest) {
+				if (QFile::remove(info.filePath())) {
+					continue;
+				}
+			}
+			total += info.size();
+			entries.push_back({ info.filePath(), info.size(), time });
+		}
+		if (limit > 0 && total > limit) {
+			std::sort(
+				entries.begin(),
+				entries.end(),
+				[](const Entry &a, const Entry &b) {
+					return a.time < b.time;
+				});
+			const auto target = limit / 10 * 9;
+			for (const auto &entry : entries) {
+				if (total <= target) {
+					break;
+				} else if (QFile::remove(entry.path)) {
+					total -= entry.size;
+				}
+			}
+		}
+		Running.store(false);
+	});
+}
+
+void scheduleSavedMediaCleanup() {
+	static auto Scheduled = false;
+	if (std::exchange(Scheduled, true)) {
+		return;
+	}
+	base::call_delayed(kCleanupDelay, [] {
+		Scheduled = false;
+		cleanupSavedMedia();
+	});
 }
 
 }

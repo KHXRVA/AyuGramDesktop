@@ -232,6 +232,7 @@ private:
 	rpl::event_stream<ShownRead> _shownReads;
 
 	std::unordered_map<PeerId, std::unique_ptr<History>> _map;
+	rpl::lifetime _filtersLifetime;
 	base::flat_map<not_null<History*>, State> _states;
 	base::flat_map<int, not_null<History*>> _historyByRequest;
 	int _requestAutoincrement = 0;

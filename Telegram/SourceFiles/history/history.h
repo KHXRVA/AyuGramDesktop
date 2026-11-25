@@ -236,6 +236,9 @@ public:
 	[[nodiscard]] bool unreadCountRefreshNeeded(MsgId readTillId) const;
 
 	void setUnreadCount(int newUnreadCount);
+	[[nodiscard]] int displayedUnreadCount() const;
+	void trackHiddenUnread(not_null<HistoryItem*> item);
+	void refreshHiddenUnread();
 	void setUnreadMark(bool unread);
 	void setFakeUnreadWhileOpened(bool enabled);
 	[[nodiscard]] bool fakeUnreadWhileOpened() const;
@@ -670,6 +673,10 @@ private:
 	[[nodiscard]] Dialogs::BadgesState adjustBadgesStateByFolder(
 		Dialogs::BadgesState state) const;
 	[[nodiscard]] Dialogs::UnreadState computeUnreadState() const;
+	[[nodiscard]] bool hasReadHiddenUnread() const;
+	void eraseReadHiddenUnread();
+	void pruneHiddenUnread();
+	void changeHiddenUnread(Fn<void()> callback);
 	[[nodiscard]] Dialogs::UnreadState withMyMuted(
 		Dialogs::UnreadState state) const;
 	void setFolderPointer(Data::Folder *folder);
@@ -703,6 +710,7 @@ private:
 	std::optional<HistoryItem*> _lastServerMessage;
 	base::flat_set<not_null<HistoryItem*>> _clientSideMessages;
 	std::unordered_set<std::unique_ptr<HistoryItem>> _items;
+	base::flat_set<MsgId> _hiddenUnread;
 
 	std::unique_ptr<Data::HistoryMessages> _messages;
 	std::unique_ptr<HistoryStreamedDrafts> _streamedDrafts;

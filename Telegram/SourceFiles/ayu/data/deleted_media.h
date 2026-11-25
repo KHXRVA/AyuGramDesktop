@@ -42,4 +42,7 @@ void removeSavedMediaForDialog(ID userId, ID dialogId);
 
 [[nodiscard]] QString mediaRootPath();
 
+void cleanupSavedMedia();
+void scheduleSavedMediaCleanup();
+
 }

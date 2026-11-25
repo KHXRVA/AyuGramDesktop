@@ -72,7 +72,7 @@ constexpr auto kBounceDuration = crl::time(400);
 		}
 		const auto peer = history->peer;
 		if (peer->isBroadcast()
-			&& (history->unreadCount() > 0)
+			&& (history->displayedUnreadCount() > 0)
 			&& !history->useTopPromotion()
 			&& peer->computeUnavailableReason().isEmpty()) {
 			return history;

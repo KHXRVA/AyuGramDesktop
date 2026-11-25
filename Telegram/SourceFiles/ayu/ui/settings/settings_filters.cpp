@@ -118,6 +118,21 @@ void BuildFiltersSettings(SectionBuilder &builder) {
 		}, joinButton->lifetime());
 	}
 
+	const auto counterButton = builder.addButton({
+		.id = u"ayu/hideFilteredFromCounter"_q,
+		.title = tr::ayu_FiltersHideFromCounter(),
+		.st = &st::settingsButtonNoIcon,
+		.toggled = rpl::single(settings->hideFilteredFromCounter()),
+	});
+	if (counterButton) {
+		counterButton->toggledValue(
+		) | rpl::filter([=](bool enabled) {
+			return (enabled != settings->hideFilteredFromCounter());
+		}) | on_next([=](bool enabled) {
+			AyuSettings::getInstance().setHideFilteredFromCounter(enabled);
+		}, counterButton->lifetime());
+	}
+
 	builder.addSkip();
 }
 

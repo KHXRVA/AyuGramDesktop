@@ -36,6 +36,7 @@
 #include "ui/vertical_list.h"
 #include "ui/boxes/confirm_box.h"
 #include "ui/boxes/single_choice_box.h"
+#include "ui/text/format_values.h"
 #include "ui/text/text.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/buttons.h"
@@ -719,6 +720,54 @@ void BuildSpyEssentials(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		},
 		.toggledWhenAll = false,
 	});
+	{
+		const auto limits = std::vector<int>{
+			0, 512, 1024, 2048, 5120, 10240, 20480, 51200,
+		};
+		const auto current = AyuSettings::getInstance().deletedMediaLimit();
+		const auto i = ranges::find(limits, current);
+		auto options = std::vector<QString>();
+		for (const auto limit : limits) {
+			options.push_back(!limit
+				? tr::ayu_DeletedMediaNoLimit(tr::now)
+				: Ui::FormatSizeText(limit * int64(1024 * 1024)));
+		}
+		ayu.addChooseButton({
+			.id = u"ayu/deletedMediaLimit"_q,
+			.title = tr::ayu_DeletedMediaLimit(),
+			.boxTitle = tr::ayu_DeletedMediaLimit(),
+			.initialSelection = (i != end(limits))
+				? int(i - begin(limits))
+				: 0,
+			.options = options,
+			.setter = [=](int index) {
+				AyuSettings::getInstance().setDeletedMediaLimit(
+					limits[index]);
+			},
+		});
+	}
+	{
+		const auto days = std::vector<int>{ 0, 7, 30, 90, 180, 365 };
+		const auto current = AyuSettings::getInstance().deletedMediaDays();
+		const auto i = ranges::find(days, current);
+		ayu.addChooseButton({
+			.id = u"ayu/deletedMediaDays"_q,
+			.title = tr::ayu_DeletedMediaKeep(),
+			.boxTitle = tr::ayu_DeletedMediaKeep(),
+			.initialSelection = (i != end(days)) ? int(i - begin(days)) : 0,
+			.options = {
+				tr::ayu_DeletedMediaKeepForever(tr::now),
+				tr::ayu_DeletedMediaKeepWeek(tr::now),
+				tr::ayu_DeletedMediaKeepMonth(tr::now),
+				tr::ayu_DeletedMediaKeepThreeMonths(tr::now),
+				tr::ayu_DeletedMediaKeepHalfYear(tr::now),
+				tr::ayu_DeletedMediaKeepYear(tr::now),
+			},
+			.setter = [=](int index) {
+				AyuSettings::getInstance().setDeletedMediaDays(days[index]);
+			},
+		});
+	}
 	ayu.addSettingToggle({
 		.id = u"ayu/restoreDeletedInChat"_q,
 		.title = tr::ayu_SettingsRestoreDeletedInChat(),

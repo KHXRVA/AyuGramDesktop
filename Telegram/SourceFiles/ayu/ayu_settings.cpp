@@ -12,6 +12,7 @@
 #include "tray.h"
 #include "ayu/ayu_ui_settings.h"
 #include "ayu/ayu_worker.h"
+#include "ayu/data/deleted_media.h"
 #include "ayu/features/streamer_mode/streamer_mode.h"
 #include "ayu/ui/ayu_logo.h"
 #include "core/application.h"
@@ -1172,6 +1173,27 @@ void AyuSettings::removeWidgetAllowedDialog(int64 dialogId) {
 	}
 }
 
+void AyuSettings::setHideFilteredFromCounter(bool val) {
+	if (_hideFilteredFromCounter.current() == val) return;
+	_hideFilteredFromCounter = val;
+	save();
+	FiltersCacheController::fireUpdate();
+}
+
+void AyuSettings::setDeletedMediaLimit(int val) {
+	if (_deletedMediaLimit.current() == val) return;
+	_deletedMediaLimit = val;
+	save();
+	AyuMessages::cleanupSavedMedia();
+}
+
+void AyuSettings::setDeletedMediaDays(int val) {
+	if (_deletedMediaDays.current() == val) return;
+	_deletedMediaDays = val;
+	save();
+	AyuMessages::cleanupSavedMedia();
+}
+
 void AyuSettings::setDisableBotWidgets(bool val) {
 	if (_disableBotWidgets.current() == val) return;
 	_disableBotWidgets = val;
@@ -1349,6 +1371,9 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"filtersEnabledInChats", s._filtersEnabledInChats.current()},
 		{"hideFromBlocked", s._hideFromBlocked.current()},
 		{"hideJoinMessages", s._hideJoinMessages.current()},
+		{"hideFilteredFromCounter", s._hideFilteredFromCounter.current()},
+		{"deletedMediaLimit", s._deletedMediaLimit.current()},
+		{"deletedMediaDays", s._deletedMediaDays.current()},
 		{"disableBotWidgets", s._disableBotWidgets.current()},
 		{"semiTransparentDeletedMessages", s._semiTransparentDeletedMessages.current()},
 		{"disableAds", s._disableAds.current()},
@@ -1477,6 +1502,9 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._filtersEnabledInChats = j.value("filtersEnabledInChats", defaults._filtersEnabledInChats.current());
 	s._hideFromBlocked = j.value("hideFromBlocked", defaults._hideFromBlocked.current());
 	s._hideJoinMessages = j.value("hideJoinMessages", defaults._hideJoinMessages.current());
+	s._hideFilteredFromCounter = j.value("hideFilteredFromCounter", defaults._hideFilteredFromCounter.current());
+	s._deletedMediaLimit = std::max(j.value("deletedMediaLimit", defaults._deletedMediaLimit.current()), 0);
+	s._deletedMediaDays = std::max(j.value("deletedMediaDays", defaults._deletedMediaDays.current()), 0);
 	s._disableBotWidgets = j.value("disableBotWidgets", defaults._disableBotWidgets.current());
 	s._semiTransparentDeletedMessages = j.value("semiTransparentDeletedMessages", defaults._semiTransparentDeletedMessages.current());
 	s._disableAds = j.value("disableAds", defaults._disableAds.current());

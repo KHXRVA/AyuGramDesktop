@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_worker.h"
 #include "ayu/data/messages_storage.h"
+#include "ayu/features/filters/filters_cache_controller.h"
 #include "ayu/utils/telegram_helpers.h"
 
 
@@ -155,6 +156,12 @@ MTPInputMedia WebPageForMTP(
 Histories::Histories(not_null<Session*> owner)
 : _owner(owner)
 , _readRequestsTimer([=] { sendReadRequests(); }) {
+	FiltersCacheController::updates(
+	) | rpl::on_next([=] {
+		for (const auto &[peerId, history] : _map) {
+			history->refreshHiddenUnread();
+		}
+	}, _filtersLifetime);
 }
 
 Session &Histories::owner() const {

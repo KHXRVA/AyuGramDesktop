@@ -89,6 +89,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 // AyuGram includes
 #include "ayu/ayu_settings.h"
 #include "ayu/data/deleted_injector.h"
+#include "ayu/features/filters/filters_unread.h"
 #include "ayu/ayu_state.h"
 
 
@@ -286,6 +287,10 @@ void History::itemVanished(not_null<HistoryItem*> item) {
 		&& item->unread(this)
 		&& unreadCount() > 0) {
 		setUnreadCount(unreadCount() - 1);
+	}
+	if (_hiddenUnread.contains(item->id)) {
+		const auto id = item->id;
+		changeHiddenUnread([=] { _hiddenUnread.remove(id); });
 	}
 	if (const auto media = item->media()) {
 		if (media->gift()) {
@@ -1735,6 +1740,7 @@ void History::newItemAdded(not_null<HistoryItem*> item, NewAddType type) {
 			} else if (!isForum()) {
 				owner().histories().requestDialogEntry(this);
 			}
+			trackHiddenUnread(item);
 		} else {
 			inboxRead(item);
 		}
@@ -1971,6 +1977,9 @@ void History::addCreatedOlderSlice(
 		addItemToBlock(item);
 	}
 	finishBuildingFrontBlock();
+	for (const auto &item : items) {
+		trackHiddenUnread(item);
+	}
 
 	if (loadedAtBottom()) {
 		// Add photos to overview and authors to lastAuthors.
@@ -2017,6 +2026,9 @@ void History::addNewerSlice(const QVector<MTPMessage> &sliceFromServer) {
 
 		for (const auto &item : added) {
 			addItemToBlock(item);
+		}
+		for (const auto &item : added) {
+			trackHiddenUnread(item);
 		}
 
 		addToSharedMedia(added);
@@ -2346,6 +2358,7 @@ void History::inboxRead(MsgId upTo, std::optional<int> stillUnread) {
 		owner().histories().requestDialogEntry(this);
 	}
 	setInboxReadTill(upTo);
+	pruneHiddenUnread();
 	updateChatListEntry();
 	if (const auto to = peer->migrateTo()) {
 		if (const auto migrated = peer->owner().historyLoaded(to->id)) {
@@ -2409,6 +2422,94 @@ int History::unreadCount() const {
 	return _unreadCount ? *_unreadCount : 0;
 }
 
+int History::displayedUnreadCount() const {
+	return std::max(unreadCount() - int(_hiddenUnread.size()), 0);
+}
+
+bool History::hasReadHiddenUnread() const {
+	return !_hiddenUnread.empty()
+		&& (_hiddenUnread.front() <= inboxReadTillId());
+}
+
+void History::eraseReadHiddenUnread() {
+	const auto till = inboxReadTillId();
+	while (!_hiddenUnread.empty() && _hiddenUnread.front() <= till) {
+		_hiddenUnread.erase(begin(_hiddenUnread));
+	}
+}
+
+void History::pruneHiddenUnread() {
+	if (hasReadHiddenUnread()) {
+		changeHiddenUnread([=] { eraseReadHiddenUnread(); });
+	}
+}
+
+void History::changeHiddenUnread(Fn<void()> callback) {
+	const auto was = displayedUnreadCount();
+	{
+		const auto notifier = unreadStateChangeNotifier(
+			useMyUnreadInParent() && folderKnown());
+		callback();
+	}
+	if (was == displayedUnreadCount()) {
+		return;
+	}
+	updateChatListEntry();
+	if (isLinkedCommunityMember()) {
+		_communityInfo->oneUnreadStateChanged();
+	}
+}
+
+void History::trackHiddenUnread(not_null<HistoryItem*> item) {
+	const auto id = item->id;
+	const auto hide = item->unread(this) && FiltersUnread::hidden(item);
+	if (hide != _hiddenUnread.contains(id)) {
+		changeHiddenUnread([=] {
+			if (hide) {
+				_hiddenUnread.emplace(id);
+			} else {
+				_hiddenUnread.remove(id);
+			}
+		});
+	}
+	if (const auto topic = item->topic()) {
+		topic->trackHiddenUnread(item);
+	}
+}
+
+void History::refreshHiddenUnread() {
+	auto now = base::flat_set<MsgId>();
+	auto topics = base::flat_map<
+		not_null<Data::ForumTopic*>,
+		base::flat_set<MsgId>>();
+	for (const auto &owned : _items) {
+		const auto item = not_null<HistoryItem*>(owned.get());
+		const auto topic = item->topic();
+		const auto unread = item->unread(this);
+		const auto unreadInTopic = topic && item->unread(topic);
+		if ((!unread && !unreadInTopic) || !FiltersUnread::hidden(item)) {
+			continue;
+		}
+		if (unread) {
+			now.emplace(item->id);
+		}
+		if (unreadInTopic) {
+			topics[topic].emplace(item->id);
+		}
+	}
+	if (_hiddenUnread != now) {
+		changeHiddenUnread([&] { _hiddenUnread = std::move(now); });
+	}
+	if (const auto forum = peer->forum()) {
+		forum->enumerateTopics([&](not_null<Data::ForumTopic*> topic) {
+			const auto i = topics.find(topic);
+			topic->setHiddenUnread((i != end(topics))
+				? std::move(i->second)
+				: base::flat_set<MsgId>());
+		});
+	}
+}
+
 bool History::unreadCountKnown() const {
 	return _unreadCount.has_value();
 }
@@ -2451,6 +2552,11 @@ void History::setUnreadCount(int newUnreadCount) {
 		}
 	} else if (!_firstUnreadView && !_unreadBarView && loadedAtBottom()) {
 		calculateFirstUnreadMessage();
+	}
+	if (!newUnreadCount) {
+		_hiddenUnread.clear();
+	} else {
+		eraseReadHiddenUnread();
 	}
 	if (isLinkedCommunityMember()) {
 		_communityInfo->oneUnreadStateChanged();
@@ -2936,7 +3042,7 @@ Dialogs::BadgesState History::adjustBadgesStateByFolder(
 
 Dialogs::UnreadState History::computeUnreadState() const {
 	auto result = Dialogs::UnreadState();
-	const auto count = _unreadCount.value_or(0);
+	const auto count = displayedUnreadCount();
 	const auto mark = !count && unreadMark();
 	const auto muted = this->muted();
 	result.messages = count;
@@ -3640,6 +3746,12 @@ void History::applyDialog(
 		peer->setMessagesTTL(ttl->v);
 	}
 	owner().histories().dialogEntryApplied(this);
+	if (const auto last = lastServerMessage()) {
+		trackHiddenUnread(last);
+		if (_hiddenUnread.contains(last->id)) {
+			FiltersUnread::resolve(this);
+		}
+	}
 }
 
 void History::dialogEntryApplied() {
@@ -3745,6 +3857,7 @@ void History::applyDialogFields(
 		&& maxInboxRead + 1 >= _inboxReadBefore.value_or(1)) {
 		setUnreadCount(unreadCount);
 		setInboxReadTill(maxInboxRead);
+		pruneHiddenUnread();
 	}
 	setOutboxReadTill(maxOutboxRead);
 }

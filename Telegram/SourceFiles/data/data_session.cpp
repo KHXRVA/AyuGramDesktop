@@ -3149,6 +3149,7 @@ proceed:
 	}, [&](const auto &data) {
 		existing->applyEdition(HistoryMessageEdition(_session, data));
 	});
+	existing->history()->trackHiddenUnread(existing);
 }
 
 void Session::processMessages(

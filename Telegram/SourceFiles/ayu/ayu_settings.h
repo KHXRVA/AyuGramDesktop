@@ -294,6 +294,9 @@ public:
 	[[nodiscard]] bool filtersEnabledInChats() const { return _filtersEnabledInChats.current(); }
 	[[nodiscard]] bool hideFromBlocked() const { return _hideFromBlocked.current(); }
 	[[nodiscard]] bool hideJoinMessages() const { return _hideJoinMessages.current(); }
+	[[nodiscard]] bool hideFilteredFromCounter() const { return _hideFilteredFromCounter.current(); }
+	[[nodiscard]] int deletedMediaLimit() const { return _deletedMediaLimit.current(); }
+	[[nodiscard]] int deletedMediaDays() const { return _deletedMediaDays.current(); }
 	[[nodiscard]] bool disableBotWidgets() const { return _disableBotWidgets.current(); }
 	[[nodiscard]] bool isWidgetAllowed(int64 dialogId) const { return _widgetAllowedDialogs.contains(dialogId); }
 	void addWidgetAllowedDialog(int64 dialogId);
@@ -452,6 +455,9 @@ public:
 	void setFiltersEnabledInChats(bool val);
 	void setHideFromBlocked(bool val);
 	void setHideJoinMessages(bool val);
+	void setHideFilteredFromCounter(bool val);
+	void setDeletedMediaLimit(int val);
+	void setDeletedMediaDays(int val);
 	void setDisableBotWidgets(bool val);
 	void setSemiTransparentDeletedMessages(bool val);
 	void setDisableAds(bool val);
@@ -725,6 +731,9 @@ private:
 	rpl::variable<bool> _filtersEnabledInChats = false;
 	rpl::variable<bool> _hideFromBlocked = false;
 	rpl::variable<bool> _hideJoinMessages = false;
+	rpl::variable<bool> _hideFilteredFromCounter = true;
+	rpl::variable<int> _deletedMediaLimit = 0;
+	rpl::variable<int> _deletedMediaDays = 0;
 	rpl::variable<bool> _disableBotWidgets = false;
 	rpl::variable<bool> _semiTransparentDeletedMessages = false;
 	rpl::variable<bool> _disableAds = true;

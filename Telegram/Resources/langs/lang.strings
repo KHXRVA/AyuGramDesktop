@@ -9911,6 +9911,16 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ContextNotifyFirstOnly" = "Notify only about first message";
 "ayu_ContextNotifyAll" = "Notify about every message";
 "ayu_FiltersHideJoinMessages" = "Hide join messages";
+"ayu_FiltersHideFromCounter" = "Don't count filtered messages as unread";
+"ayu_DeletedMediaLimit" = "Deleted media storage limit";
+"ayu_DeletedMediaNoLimit" = "No limit";
+"ayu_DeletedMediaKeep" = "Keep deleted media";
+"ayu_DeletedMediaKeepForever" = "Forever";
+"ayu_DeletedMediaKeepWeek" = "1 week";
+"ayu_DeletedMediaKeepMonth" = "1 month";
+"ayu_DeletedMediaKeepThreeMonths" = "3 months";
+"ayu_DeletedMediaKeepHalfYear" = "6 months";
+"ayu_DeletedMediaKeepYear" = "1 year";
 "ayu_FilterRounds" = "Video messages";
 "ayu_DisableBotWidgets" = "Disable bot widgets";
 "ayu_WidgetBlockedTitle" = "Widget disabled";

@@ -4452,7 +4452,10 @@ void ChatWidget::unreadCountUpdated() {
 	} else {
 		refreshUnreadCountBadge(_replies
 			? (_replies->unreadCountKnown()
-				? _replies->unreadCountCurrent()
+				? std::max(
+					_replies->unreadCountCurrent()
+						- (_topic ? _topic->hiddenUnreadCount() : 0),
+					0)
 				: std::optional<int>())
 			: _sublist
 			? (_sublist->unreadCountKnown()

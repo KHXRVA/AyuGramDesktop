@@ -35,6 +35,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <QtSvg/QSvgRenderer>
 
+// AyuGram includes
+#include "ayu/features/filters/filters_unread.h"
+
+
 namespace Data {
 namespace {
 
@@ -379,6 +383,49 @@ void ForumTopic::subscribeToUnreadChanges() {
 			previous.value_or(0),
 			previous.has_value()));
 	}, _lifetime);
+
+	_replies->unreadCountValue(
+	) | rpl::on_next([=](std::optional<int> value) {
+		const auto till = _replies->inboxReadTillId();
+		auto now = _hiddenUnread;
+		if (value && !*value) {
+			now.clear();
+		}
+		while (!now.empty() && now.front() <= till) {
+			now.erase(begin(now));
+		}
+		setHiddenUnread(std::move(now));
+	}, _lifetime);
+}
+
+int ForumTopic::hiddenUnreadCount() const {
+	return int(_hiddenUnread.size());
+}
+
+void ForumTopic::setHiddenUnread(base::flat_set<MsgId> ids) {
+	if (_hiddenUnread == ids) {
+		return;
+	}
+	{
+		const auto notifier = unreadStateChangeNotifier(folderKnown());
+		_hiddenUnread = std::move(ids);
+	}
+	_forum->recentTopicsInvalidate(this);
+	updateChatListEntry();
+}
+
+void ForumTopic::trackHiddenUnread(not_null<HistoryItem*> item) {
+	const auto hide = item->unread(this) && FiltersUnread::hidden(item);
+	if (hide == _hiddenUnread.contains(item->id)) {
+		return;
+	}
+	auto now = _hiddenUnread;
+	if (hide) {
+		now.emplace(item->id);
+	} else {
+		now.remove(item->id);
+	}
+	setHiddenUnread(std::move(now));
 }
 
 void ForumTopic::readTillEnd() {
@@ -868,6 +915,11 @@ void ForumTopic::maybeSetLastMessage(not_null<HistoryItem*> item) {
 }
 
 void ForumTopic::applyItemRemoved(MsgId id) {
+	if (_hiddenUnread.contains(id)) {
+		auto now = _hiddenUnread;
+		now.remove(id);
+		setHiddenUnread(std::move(now));
+	}
 	if (const auto lastItem = lastMessage()) {
 		if (lastItem->id == id) {
 			_lastMessage = std::nullopt;
@@ -930,6 +982,7 @@ Dialogs::UnreadState ForumTopic::unreadStateFor(
 		bool known) const {
 	auto result = Dialogs::UnreadState();
 	const auto muted = this->muted();
+	count = std::max(count - hiddenUnreadCount(), 0);
 	result.messages = count;
 	result.chats = count ? 1 : 0;
 	result.mentions = unreadMentions().has() ? 1 : 0;

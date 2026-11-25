@@ -11,6 +11,7 @@
 #include "ayu/ayu_ui_settings.h"
 #include "ayu/ayu_worker.h"
 #include "ayu/data/ayu_database.h"
+#include "ayu/data/deleted_media.h"
 #include "ayu/ui/ayu_logo.h"
 #include "features/translator/ayu_translator.h"
 #include "lang/lang_instance.h"
@@ -46,6 +47,7 @@ void initUiSettings() {
 
 void initDatabase() {
 	AyuDatabase::initialize();
+	AyuMessages::scheduleSavedMediaCleanup();
 }
 
 void initWorker() {
