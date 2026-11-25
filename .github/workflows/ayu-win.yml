@@ -102,12 +102,13 @@ jobs:
             '@echo off',
             "call `"$vs\VC\Auxiliary\Build\vcvarsall.bat`" x64 10.0.26100.0 -vcvars_ver=14.44 || exit /b 1",
             "cd /d `"$env:TBUILD`"",
-            'call tdesktop\Telegram\build\prepare\win.bat silent || exit /b 1'
+            "call tdesktop\Telegram\build\prepare\win.bat silent > `"$env:RUNNER_TEMP\libs.log`" 2>&1 || exit /b 1"
           ) | Set-Content $bat -Encoding ascii
           $process = Start-Process cmd -ArgumentList '/c', $bat -NoNewWindow -PassThru
           $null = $process.Handle
           if ($process.WaitForExit(310 * 60 * 1000)) {
             if ($process.ExitCode -ne 0) {
+              python "$env:TBUILD\tdesktop\.github\scripts\annotate.py" tail "$env:RUNNER_TEMP\libs.log"
               exit 1
             }
             "done=true" >> $env:GITHUB_OUTPUT
@@ -120,6 +121,13 @@ jobs:
             }
           }
           exit 0
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.build.outcome == 'failure'
+        with:
+          name: libs-log-${{ matrix.part }}
+          path: ${{ runner.temp }}\libs.log
+          retention-days: 7
 
       - name: Trim libraries
         if: always() && steps.ready.outputs.cache-hit != 'true' && steps.build.outcome != 'skipped'
@@ -245,7 +253,10 @@ jobs:
             Write-Host '::error::Build did not fit into the time limit, run the workflow again.'
             exit 1
           }
-          if ($process.ExitCode -ne 0) { exit 1 }
+          if ($process.ExitCode -ne 0) {
+            python "$env:TBUILD\tdesktop\.github\scripts\annotate.py" errors "$env:RUNNER_TEMP\build.log"
+            exit 1
+          }
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\community" | Out-Null
           Copy-Item "$env:TBUILD\tdesktop\out\Release\AyuGram.exe" "$env:RUNNER_TEMP\community"
 
