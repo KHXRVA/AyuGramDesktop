@@ -310,6 +310,21 @@ bool isGhostExcludedChatOpen(not_null<Main::Session*> session) {
 	return false;
 }
 
+not_null<PeerData*> widgetOwner(not_null<const HistoryItem*> item) {
+	if (const auto bot = item->viaBot()) {
+		return bot;
+	} else if (const auto sender = item->originalSender()) {
+		return sender;
+	}
+	return item->from();
+}
+
+bool isWidgetAllowed(not_null<const HistoryItem*> item) {
+	const auto &settings = AyuSettings::getInstance();
+	return !settings.disableBotWidgets()
+		|| settings.isWidgetAllowed(getDialogIdFromPeer(widgetOwner(item)));
+}
+
 bool isMessageHidden(const not_null<HistoryItem*> item) {
 	if (AyuState::isHidden(item)) {
 		return true;

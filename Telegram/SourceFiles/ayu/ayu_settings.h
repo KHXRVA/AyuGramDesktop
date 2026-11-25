@@ -294,6 +294,10 @@ public:
 	[[nodiscard]] bool filtersEnabledInChats() const { return _filtersEnabledInChats.current(); }
 	[[nodiscard]] bool hideFromBlocked() const { return _hideFromBlocked.current(); }
 	[[nodiscard]] bool hideJoinMessages() const { return _hideJoinMessages.current(); }
+	[[nodiscard]] bool disableBotWidgets() const { return _disableBotWidgets.current(); }
+	[[nodiscard]] bool isWidgetAllowed(int64 dialogId) const { return _widgetAllowedDialogs.contains(dialogId); }
+	void addWidgetAllowedDialog(int64 dialogId);
+	void removeWidgetAllowedDialog(int64 dialogId);
 	[[nodiscard]] bool semiTransparentDeletedMessages() const { return _semiTransparentDeletedMessages.current(); }
 	[[nodiscard]] bool disableAds() const { return _disableAds.current(); }
 	[[nodiscard]] bool disableStories() const { return _disableStories.current(); }
@@ -448,6 +452,7 @@ public:
 	void setFiltersEnabledInChats(bool val);
 	void setHideFromBlocked(bool val);
 	void setHideJoinMessages(bool val);
+	void setDisableBotWidgets(bool val);
 	void setSemiTransparentDeletedMessages(bool val);
 	void setDisableAds(bool val);
 	void setDisableStories(bool val);
@@ -720,6 +725,7 @@ private:
 	rpl::variable<bool> _filtersEnabledInChats = false;
 	rpl::variable<bool> _hideFromBlocked = false;
 	rpl::variable<bool> _hideJoinMessages = false;
+	rpl::variable<bool> _disableBotWidgets = false;
 	rpl::variable<bool> _semiTransparentDeletedMessages = false;
 	rpl::variable<bool> _disableAds = true;
 	rpl::variable<bool> _disableStories = false;
@@ -813,6 +819,7 @@ private:
 	std::unordered_set<int64> _deletedExcludedDialogs;
 	std::unordered_set<int64> _ghostExcludedDialogs;
 	std::unordered_set<int64> _firstMessageOnlyDialogs;
+	std::unordered_set<int64> _widgetAllowedDialogs;
 	rpl::variable<bool> _hideWalletInDrawer = false;
 	rpl::variable<QString> _customAppName;
 	rpl::variable<int> _roundVideoSize = 100;

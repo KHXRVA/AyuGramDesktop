@@ -9912,6 +9912,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "ayu_ContextNotifyAll" = "Notify about every message";
 "ayu_FiltersHideJoinMessages" = "Hide join messages";
 "ayu_FilterRounds" = "Video messages";
+"ayu_DisableBotWidgets" = "Disable bot widgets";
+"ayu_WidgetBlockedTitle" = "Widget disabled";
+"ayu_WidgetBlockedText" = "Widgets run code from a bot. Allow them for {name}?";
+"ayu_WidgetBlockedAllow" = "Allow";
+"ayu_ContextWidgetsAllow" = "Allow widgets";
+"ayu_ContextWidgetsForbid" = "Disable widgets";
 "ayu_TranslatorSubtitle" = "Translate Messages";
 "ayu_ContextCopyChatLog" = "Copy as chat log";
 "ayu_ContextClearDeletedSelected" = "Clear deleted in selected";

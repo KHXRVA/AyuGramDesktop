@@ -21,6 +21,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include <zlib.h>
 
+// AyuGram includes
+#include "ayu/ayu_settings.h"
+#include "ayu/utils/telegram_helpers.h"
+
+
 namespace Tgw {
 namespace {
 
@@ -237,6 +242,21 @@ std::unique_ptr<HistoryView::Media> WidgetMedia::createView(
 		not_null<HistoryView::Element*> message,
 		not_null<HistoryItem*> realParent,
 		HistoryView::Element *replacing) {
+	if (!isWidgetAllowed(realParent)) {
+		const auto owner = widgetOwner(realParent);
+		const auto dialogId = getDialogIdFromPeer(owner);
+		return std::make_unique<HistoryView::UnsupportedWidget>(
+			message,
+			tr::ayu_WidgetBlockedTitle(tr::now),
+			tr::ayu_WidgetBlockedText(
+				tr::now,
+				lt_name,
+				owner->name()),
+			tr::ayu_WidgetBlockedAllow(tr::now),
+			[=] {
+				AyuSettings::getInstance().addWidgetAllowedDialog(dialogId);
+			});
+	}
 	const auto &html = this->html();
 	if (!html.isEmpty()) {
 		return std::make_unique<HistoryView::HtmlWidget>(

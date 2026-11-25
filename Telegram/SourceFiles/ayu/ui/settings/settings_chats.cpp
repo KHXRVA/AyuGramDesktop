@@ -184,6 +184,12 @@ void BuildGroupsAndChannels(SectionBuilder &builder, AyuSectionBuilder &ayu) {
 		.setter = &AyuSettings::setDisableGreetingSticker,
 	});
 	ayu.addSettingToggle({
+		.id = u"ayu/disableBotWidgets"_q,
+		.title = tr::ayu_DisableBotWidgets(),
+		.getter = &AyuSettings::disableBotWidgets,
+		.setter = &AyuSettings::setDisableBotWidgets,
+	});
+	ayu.addSettingToggle({
 		.id = u"ayu/showMessageShot"_q,
 		.title = tr::ayu_SettingsShowMessageShot(),
 		.getter = &AyuSettings::showMessageShot,

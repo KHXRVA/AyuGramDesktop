@@ -20,14 +20,23 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace HistoryView {
 
 UnsupportedWidget::UnsupportedWidget(not_null<Element*> parent)
+: UnsupportedWidget(
+	parent,
+	tr::lng_unsupported_message_title(tr::now),
+	tr::lng_unsupported_message_text(tr::now),
+	tr::lng_unsupported_message_update(tr::now),
+	[] { Core::UpdateApplication(); }) {
+}
+
+UnsupportedWidget::UnsupportedWidget(
+	not_null<Element*> parent,
+	const QString &title,
+	const QString &text,
+	const QString &button,
+	Fn<void()> callback)
 : Media(parent)
-, _link(std::make_shared<LambdaClickHandler>([] {
-	Core::UpdateApplication();
-})) {
-	_card.setTexts(
-		tr::lng_unsupported_message_title(tr::now),
-		tr::lng_unsupported_message_text(tr::now),
-		tr::lng_unsupported_message_update(tr::now));
+, _link(std::make_shared<LambdaClickHandler>(std::move(callback))) {
+	_card.setTexts(title, text, button);
 }
 
 UnsupportedWidget::~UnsupportedWidget() = default;

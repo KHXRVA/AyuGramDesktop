@@ -491,6 +491,23 @@ void AddAyuGramActions(PeerData *peerData,
 						}
 					},
 					firstOnly ? &st::menuIconUnmute : &st::menuIconMute);
+				const auto &settings = AyuSettings::getInstance();
+				const auto bot = peerData->asUser();
+				if (bot && bot->isBot() && settings.disableBotWidgets()) {
+					const auto allowed = settings.isWidgetAllowed(dialogId);
+					addAction(
+						allowed
+							? tr::ayu_ContextWidgetsForbid(tr::now)
+							: tr::ayu_ContextWidgetsAllow(tr::now),
+						[=] {
+							if (allowed) {
+								AyuSettings::getInstance().removeWidgetAllowedDialog(dialogId);
+							} else {
+								AyuSettings::getInstance().addWidgetAllowedDialog(dialogId);
+							}
+						},
+						&st::menuIconBot);
+				}
 			}
 		},
 	});

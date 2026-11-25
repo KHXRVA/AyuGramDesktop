@@ -21,6 +21,7 @@
 #include "main/main_session.h"
 #include "platform/platform_translate_provider.h"
 #include "rpl/combine.h"
+#include "tgw/tgw_state.h"
 #include "window/window_controller.h"
 
 #include <algorithm>
@@ -1157,6 +1158,27 @@ void AyuSettings::removeFirstMessageOnlyDialog(int64 dialogId) {
 	}
 }
 
+void AyuSettings::addWidgetAllowedDialog(int64 dialogId) {
+	if (_widgetAllowedDialogs.insert(dialogId).second) {
+		save();
+		Tgw::RefreshCarrierViews();
+	}
+}
+
+void AyuSettings::removeWidgetAllowedDialog(int64 dialogId) {
+	if (_widgetAllowedDialogs.erase(dialogId) > 0) {
+		save();
+		Tgw::RefreshCarrierViews();
+	}
+}
+
+void AyuSettings::setDisableBotWidgets(bool val) {
+	if (_disableBotWidgets.current() == val) return;
+	_disableBotWidgets = val;
+	save();
+	Tgw::RefreshCarrierViews();
+}
+
 void AyuSettings::setHideJoinMessages(bool val) {
 	if (_hideJoinMessages.current() == val) return;
 	_hideJoinMessages = val;
@@ -1327,6 +1349,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"filtersEnabledInChats", s._filtersEnabledInChats.current()},
 		{"hideFromBlocked", s._hideFromBlocked.current()},
 		{"hideJoinMessages", s._hideJoinMessages.current()},
+		{"disableBotWidgets", s._disableBotWidgets.current()},
 		{"semiTransparentDeletedMessages", s._semiTransparentDeletedMessages.current()},
 		{"disableAds", s._disableAds.current()},
 		{"disableStories", s._disableStories.current()},
@@ -1419,6 +1442,7 @@ void to_json(nlohmann::json &j, const AyuSettings &s) {
 		{"deletedExcludedDialogs", s._deletedExcludedDialogs},
 		{"ghostExcludedDialogs", s._ghostExcludedDialogs},
 		{"firstMessageOnlyDialogs", s._firstMessageOnlyDialogs},
+		{"widgetAllowedDialogs", s._widgetAllowedDialogs},
 		{"hideWalletInDrawer", s._hideWalletInDrawer.current()},
 		{"customAppName", s._customAppName.current()},
 		{"roundVideoSize", s._roundVideoSize.current()},
@@ -1453,6 +1477,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._filtersEnabledInChats = j.value("filtersEnabledInChats", defaults._filtersEnabledInChats.current());
 	s._hideFromBlocked = j.value("hideFromBlocked", defaults._hideFromBlocked.current());
 	s._hideJoinMessages = j.value("hideJoinMessages", defaults._hideJoinMessages.current());
+	s._disableBotWidgets = j.value("disableBotWidgets", defaults._disableBotWidgets.current());
 	s._semiTransparentDeletedMessages = j.value("semiTransparentDeletedMessages", defaults._semiTransparentDeletedMessages.current());
 	s._disableAds = j.value("disableAds", defaults._disableAds.current());
 	s._disableStories = j.value("disableStories", defaults._disableStories.current());
@@ -1545,6 +1570,7 @@ void from_json(const nlohmann::json &j, AyuSettings &s) {
 	s._deletedExcludedDialogs = j.value("deletedExcludedDialogs", defaults._deletedExcludedDialogs);
 	s._ghostExcludedDialogs = j.value("ghostExcludedDialogs", defaults._ghostExcludedDialogs);
 	s._firstMessageOnlyDialogs = j.value("firstMessageOnlyDialogs", defaults._firstMessageOnlyDialogs);
+	s._widgetAllowedDialogs = j.value("widgetAllowedDialogs", defaults._widgetAllowedDialogs);
 	s._hideWalletInDrawer = j.value("hideWalletInDrawer", defaults._hideWalletInDrawer.current());
 	s._customAppName = j.value("customAppName", defaults._customAppName.current());
 	s._roundVideoSize = std::clamp(j.value("roundVideoSize", defaults._roundVideoSize.current()), 100, 300);

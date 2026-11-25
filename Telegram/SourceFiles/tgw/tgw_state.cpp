@@ -46,6 +46,7 @@ struct Poller {
 
 struct Registry {
 	base::flat_map<uint64, Carriers> carriers;
+	Carriers all;
 	base::flat_map<not_null<Main::Session*>, std::unique_ptr<Poller>> pollers;
 	bool refreshPosted = false;
 };
@@ -234,12 +235,35 @@ void Refresh() {
 } // namespace
 
 void RegisterCarrier(not_null<WidgetMedia*> media) {
+	States().all.emplace(media);
 	if (const auto id = media->fields().widgetId) {
 		States().carriers[*id].emplace(media);
 	}
 }
 
+void RefreshCarrierViews() {
+	using Entry = std::pair<base::weak_ptr<Main::Session>, FullMsgId>;
+	auto entries = std::vector<Entry>();
+	entries.reserve(States().all.size());
+	for (const auto &media : States().all) {
+		const auto item = media->parent();
+		entries.emplace_back(
+			base::make_weak(&item->history()->session()),
+			item->fullId());
+	}
+	crl::on_main([entries = std::move(entries)] {
+		for (const auto &[weak, id] : entries) {
+			if (const auto session = weak.get()) {
+				if (const auto item = session->data().message(id)) {
+					session->data().requestItemViewRefresh(item);
+				}
+			}
+		}
+	});
+}
+
 void UnregisterCarrier(not_null<WidgetMedia*> media) {
+	States().all.remove(media);
 	const auto id = media->fields().widgetId;
 	if (!id) {
 		return;

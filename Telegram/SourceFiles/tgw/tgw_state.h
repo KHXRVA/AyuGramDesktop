@@ -17,6 +17,7 @@ class WidgetMedia;
 
 void RegisterCarrier(not_null<WidgetMedia*> media);
 void UnregisterCarrier(not_null<WidgetMedia*> media);
+void RefreshCarrierViews();
 
 void ApplyStateUpdate(
 	not_null<Main::Session*> session,

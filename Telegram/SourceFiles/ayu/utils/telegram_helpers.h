@@ -59,6 +59,8 @@ void dispatchToMainThread(const std::function<void()> &callback, int delay = 0);
 ID getDialogIdFromPeer(not_null<PeerData*> peer);
 bool isGhostExcluded(not_null<PeerData*> peer);
 bool isGhostExcludedChatOpen(not_null<Main::Session*> session);
+not_null<PeerData*> widgetOwner(not_null<const HistoryItem*> item);
+bool isWidgetAllowed(not_null<const HistoryItem*> item);
 
 ID getBareID(not_null<PeerData*> peer);
 

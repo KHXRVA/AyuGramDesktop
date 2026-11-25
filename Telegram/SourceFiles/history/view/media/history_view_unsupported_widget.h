@@ -15,6 +15,12 @@ namespace HistoryView {
 class UnsupportedWidget final : public Media {
 public:
 	explicit UnsupportedWidget(not_null<Element*> parent);
+	UnsupportedWidget(
+		not_null<Element*> parent,
+		const QString &title,
+		const QString &text,
+		const QString &button,
+		Fn<void()> callback);
 	~UnsupportedWidget();
 
 	QSize countOptimalSize() override;
