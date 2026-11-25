@@ -1,0 +1,293 @@
+name: AyuGram Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'ci-**'
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ayu-win-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LIBS_VERSION: 1
+
+jobs:
+  libs:
+    name: Libraries, part ${{ matrix.part }}
+    runs-on: windows-latest
+    timeout-minutes: 355
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        part: [1, 2]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Prepare directories
+        run: |
+          New-Item -ItemType Directory -Force "$env:USERPROFILE\TBuild\Libraries\win64", "$env:USERPROFILE\TBuild\ThirdParty" | Out-Null
+          New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\TBuild" -Target "$env:USERPROFILE\TBuild" | Out-Null
+          "TBUILD=$env:GITHUB_WORKSPACE\TBuild" >> $env:GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: TBuild\tdesktop
+
+      - name: Cache key
+        id: key
+        run: |
+          $files = 'prepare\prepare.py', 'qt_version.py'
+          $text = ($files | ForEach-Object { (Get-FileHash "$env:TBUILD\tdesktop\Telegram\build\$_").Hash }) -join '-'
+          $bytes = [Text.Encoding]::UTF8.GetBytes($text)
+          $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).Substring(0, 20)
+          "value=libs-v$env:LIBS_VERSION-$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Look for ready libraries
+        id: ready
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.key.outputs.value }}-ready
+          lookup-only: true
+
+      - name: Checkout submodules
+        if: steps.ready.outputs.cache-hit != 'true'
+        run: |
+          git -C "$env:TBUILD\tdesktop" submodule update --init --recursive --depth 1
+          exit $LASTEXITCODE
+
+      - name: Free disk space
+        if: steps.ready.outputs.cache-hit != 'true'
+        run: |
+          Remove-Item "C:\Android", "C:\Program Files\dotnet", "C:\Miniconda", "C:\msys64", "$env:USERPROFILE\.cargo", "$env:USERPROFILE\.rustup", "C:\Program Files\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL", "C:\ghcup", "C:\cabal", "C:\Program Files\LLVM", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\SeleniumWebDrivers", "C:\Program Files\R" -Recurse -Force -ErrorAction SilentlyContinue
+          Get-PSDrive C | Format-Table Used, Free
+          exit 0
+
+      - name: Restore partial libraries
+        if: steps.ready.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.key.outputs.value }}-partial-${{ github.run_id }}
+          restore-keys: |
+            ${{ steps.key.outputs.value }}-partial-
+            libs-v${{ env.LIBS_VERSION }}-
+
+      - name: Build libraries
+        id: build
+        if: steps.ready.outputs.cache-hit != 'true'
+        env:
+          CARGO_INCREMENTAL: 0
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "ci"
+          git config --global core.longpaths true
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $bat = "$env:RUNNER_TEMP\libs.bat"
+          @(
+            '@echo off',
+            "call `"$vs\VC\Auxiliary\Build\vcvarsall.bat`" x64 10.0.26100.0 -vcvars_ver=14.44 || exit /b 1",
+            "cd /d `"$env:TBUILD`"",
+            'call tdesktop\Telegram\build\prepare\win.bat silent || exit /b 1'
+          ) | Set-Content $bat -Encoding ascii
+          $process = Start-Process cmd -ArgumentList '/c', $bat -NoNewWindow -PassThru
+          $null = $process.Handle
+          if ($process.WaitForExit(310 * 60 * 1000)) {
+            if ($process.ExitCode -ne 0) {
+              exit 1
+            }
+            "done=true" >> $env:GITHUB_OUTPUT
+          } else {
+            taskkill /T /F /PID $process.Id
+            "done=false" >> $env:GITHUB_OUTPUT
+            if ('${{ matrix.part }}' -eq '2') {
+              Write-Host '::error::Libraries did not fit into two jobs, run the workflow again.'
+              exit 1
+            }
+          }
+          exit 0
+
+      - name: Trim libraries
+        if: always() && steps.ready.outputs.cache-hit != 'true' && steps.build.outcome != 'skipped'
+        shell: bash
+        run: |
+          cd "$USERPROFILE/TBuild/Libraries/win64"
+          find . '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/src/wallet_engine/*' ')' -type f ')' -o -empty ')' -delete || true
+          du -sh . ../../ThirdParty || true
+
+      - name: Save ready libraries
+        if: steps.build.outputs.done == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.key.outputs.value }}-ready
+
+      - name: Save partial libraries
+        if: always() && steps.ready.outputs.cache-hit != 'true' && steps.build.outcome != 'skipped' && steps.build.outputs.done != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.key.outputs.value }}-partial-${{ github.run_id }}-${{ matrix.part }}-${{ github.run_attempt }}
+
+  app:
+    name: AyuGram
+    needs: libs
+    runs-on: windows-latest
+    timeout-minutes: 355
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check secrets
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          if (-not $env:API_ID -or -not $env:API_HASH) {
+            Write-Host '::error::Set TDESKTOP_API_ID and TDESKTOP_API_HASH repository secrets.'
+            exit 1
+          }
+
+      - name: Prepare directories
+        run: |
+          New-Item -ItemType Directory -Force "$env:USERPROFILE\TBuild\Libraries\win64", "$env:USERPROFILE\TBuild\ThirdParty" | Out-Null
+          New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\TBuild" -Target "$env:USERPROFILE\TBuild" | Out-Null
+          "TBUILD=$env:GITHUB_WORKSPACE\TBuild" >> $env:GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: TBuild\tdesktop
+          submodules: recursive
+
+      - name: Free disk space
+        run: |
+          Remove-Item "C:\Android", "C:\Miniconda", "C:\msys64", "C:\Program Files\PostgreSQL", "C:\Program Files\MongoDB", "C:\Program Files\MySQL", "C:\ghcup", "C:\cabal", "C:\vcpkg", "C:\tools", "C:\selenium", "C:\Program Files\R" -Recurse -Force -ErrorAction SilentlyContinue
+          Get-PSDrive C | Format-Table Used, Free
+          exit 0
+
+      - name: Cache key
+        id: key
+        run: |
+          $files = 'prepare\prepare.py', 'qt_version.py'
+          $text = ($files | ForEach-Object { (Get-FileHash "$env:TBUILD\tdesktop\Telegram\build\$_").Hash }) -join '-'
+          $bytes = [Text.Encoding]::UTF8.GetBytes($text)
+          $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).Substring(0, 20)
+          "value=libs-v$env:LIBS_VERSION-$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Restore libraries
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries\win64
+          key: ${{ steps.key.outputs.value }}-ready
+          fail-on-cache-miss: true
+
+      - name: Restore previous objects
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.TBUILD }}\tdesktop\out
+          key: out-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: out-${{ steps.key.outputs.value }}-
+
+      - name: Restore source timestamps
+        run: python "$env:TBUILD\tdesktop\.github\scripts\source_mtime.py" restore "$env:TBUILD\tdesktop"
+
+      - name: Configure
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          @(
+            "call `"$vs\VC\Auxiliary\Build\vcvarsall.bat`" x64 10.0.26100.0 -vcvars_ver=14.44 || exit /b 1",
+            "cd /d `"$env:TBUILD\tdesktop\Telegram`""
+          ) | Set-Content "$env:RUNNER_TEMP\env.bat" -Encoding ascii
+          @(
+            '@echo off',
+            "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
+            'call configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON -D AYU_COMMUNITY_BUILD=ON || exit /b 1'
+          ) | Set-Content "$env:RUNNER_TEMP\configure.bat" -Encoding ascii
+          cmd /c "$env:RUNNER_TEMP\configure.bat"
+          exit $LASTEXITCODE
+
+      - name: Build community edition
+        id: community
+        run: |
+          @(
+            '@echo off',
+            "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
+            'cmake --build ..\out --config Release --target Telegram -- /m:2 /p:CL_MPCount=4 /nologo /v:minimal /fl /flp:logfile=%RUNNER_TEMP%\build.log;verbosity=minimal'
+          ) | Set-Content "$env:RUNNER_TEMP\community.bat" -Encoding ascii
+          $process = Start-Process cmd -ArgumentList '/c', "$env:RUNNER_TEMP\community.bat" -NoNewWindow -PassThru
+          $null = $process.Handle
+          if (-not $process.WaitForExit(290 * 60 * 1000)) {
+            taskkill /T /F /PID $process.Id
+            Write-Host '::error::Build did not fit into the time limit, run the workflow again.'
+            exit 1
+          }
+          if ($process.ExitCode -ne 0) { exit 1 }
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\community" | Out-Null
+          Copy-Item "$env:TBUILD\tdesktop\out\Release\AyuGram.exe" "$env:RUNNER_TEMP\community"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AyuGram-community
+          path: ${{ runner.temp }}\community
+          retention-days: 7
+
+      - name: Build regular edition
+        run: |
+          @(
+            '@echo off',
+            "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
+            'cmake -S .. -B ..\out -D AYU_COMMUNITY_BUILD=OFF || exit /b 1',
+            'cmake --build ..\out --config Release --target Telegram -- /m:2 /p:CL_MPCount=4 /nologo /v:minimal'
+          ) | Set-Content "$env:RUNNER_TEMP\regular.bat" -Encoding ascii
+          cmd /c "$env:RUNNER_TEMP\regular.bat"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\regular" | Out-Null
+          Copy-Item "$env:TBUILD\tdesktop\out\Release\AyuGram.exe" "$env:RUNNER_TEMP\regular"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AyuGram-regular
+          path: ${{ runner.temp }}\regular
+          retention-days: 7
+
+      - name: Save source timestamps
+        if: always() && steps.community.outcome != 'skipped'
+        run: python "$env:TBUILD\tdesktop\.github\scripts\source_mtime.py" save "$env:TBUILD\tdesktop"
+
+      - name: Save objects
+        if: always() && steps.community.outcome != 'skipped'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.TBUILD }}\tdesktop\out
+          key: out-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.community.outcome == 'failure'
+        with:
+          name: build-log
+          path: ${{ runner.temp }}\build.log
+          retention-days: 7
