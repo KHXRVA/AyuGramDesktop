@@ -301,7 +301,7 @@ void SetupMenuBots(
 		wrap->clear();
 		for (const auto &bot : bots->attachBots()) {
 			const auto user = bot.user;
-			if (!bot.inMainMenu || !bot.media) {
+			if (!bot.inMainMenu || !bot.media || user->isOldWalletBot()) {
 				continue;
 			} else if (AyuSettings::getInstance().hideWalletInDrawer()
 				&& user->username().compare(u"wallet"_q, Qt::CaseInsensitive) == 0) {

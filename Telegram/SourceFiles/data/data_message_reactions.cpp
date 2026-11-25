@@ -531,10 +531,6 @@ const std::vector<Reaction> &Reactions::list(Type type) const {
 	Unexpected("Type in Reactions::list.");
 }
 
-const std::vector<MyTagInfo> &Reactions::myTagsInfo() const {
-	return _myTags.find((SavedSublist*)nullptr)->second.info;
-}
-
 const QString &Reactions::myTagTitle(const ReactionId &id) const {
 	const auto i = _myTags.find((SavedSublist*)nullptr);
 	if (i != end(_myTags)) {
@@ -1308,20 +1304,6 @@ void Reactions::defaultUpdated() {
 	_defaultUpdated.fire({});
 }
 
-void Reactions::myTagsUpdated() {
-	if (_genericAnimations.empty()) {
-		requestGeneric();
-	}
-	_myTagsUpdated.fire({});
-}
-
-void Reactions::tagsUpdated() {
-	if (_genericAnimations.empty()) {
-		requestGeneric();
-	}
-	_tagsUpdated.fire({});
-}
-
 void Reactions::effectsUpdated() {
 	_effectsUpdated.fire({});
 }
@@ -1497,6 +1479,7 @@ std::optional<Reaction> Reactions::parse(const MTPAvailableReaction &entry) {
 			? _owner->processDocument(*data.varound_animation()).get()
 			: nullptr),
 		.active = !data.is_inactive(),
+		.premium = data.is_premium(),
 	});
 }
 

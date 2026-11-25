@@ -7,25 +7,26 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "editor/video/video_editor.h"
 
+#include "base/event_filter.h"
 #include "base/timer.h"
 #include "editor/editor_crop.h"
 #include "editor/video/video_quality_slider.h"
+#include "editor/video/video_segment_player.h"
 #include "editor/video/video_timeline.h"
+#include "editor/video/video_timeline_seeker.h"
 #include "lang/lang_keys.h"
-#include "media/media_video_frames.h"
-#include "media/streaming/media_streaming_document.h"
-#include "media/streaming/media_streaming_instance.h"
-#include "media/streaming/media_streaming_loader_local.h"
-#include "media/streaming/media_streaming_player.h"
 #include "media/view/media_view_pip.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/layers/layer_widget.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+#include "ui/widgets/tooltip.h"
 #include "ui/painter.h"
 #include "ui/text/format_values.h"
+#include "ui/ui_utility.h"
 #include "styles/style_editor.h"
 
+#include <QtCore/QFileInfo>
 #include <QtGui/QPainterPath>
 #include <QtGui/QtEvents>
 #include <QtWidgets/QApplication>
@@ -35,22 +36,21 @@ namespace {
 
 using Media::View::FlipSizeByRotation;
 
-constexpr auto kSeekThrottle = crl::time(60);
-constexpr auto kScrubStep = crl::time(33);
-constexpr auto kScrubMaxSide = 1280;
-constexpr auto kScrubMemoryBudget = int64(160) * 1024 * 1024;
-constexpr auto kScrubAhead = crl::time(3500);
-constexpr auto kScrubBehind = crl::time(500);
-constexpr auto kSeekFrameWait = crl::time(350);
-constexpr auto kSharpFrameDelay = crl::time(110);
-constexpr auto kScrubPrefetch = crl::time(2000);
-constexpr auto kScrubChunks = 4;
-
 constexpr auto kBubbleMinVisible = crl::time(600);
 
 constexpr auto kBubbleDuration = crl::time(500);
 
 constexpr auto kCaptureDuration = crl::time(420);
+
+constexpr auto kMaxGifSize = 10 * 1024 * 1024;
+
+[[nodiscard]] int64 SourceSize(
+		const QString &path,
+		const QByteArray &content) {
+	return path.isEmpty()
+		? int64(content.size())
+		: QFileInfo(path).size();
+}
 
 class ControlsBar final : public Ui::RpWidget {
 public:
@@ -181,16 +181,6 @@ void BarTextButton::paintEvent(QPaintEvent *e) {
 	return result;
 }
 
-[[nodiscard]] Media::Streaming::FrameRequest FrameRequestFor(
-		QSize size,
-		bool keepAlpha) {
-	auto result = Media::Streaming::FrameRequest();
-	result.resize = size * style::DevicePixelRatio();
-	result.outer = result.resize;
-	result.keepAlpha = keepAlpha;
-	return result;
-}
-
 } // namespace
 
 VideoEditor::VideoEditor(
@@ -202,9 +192,14 @@ VideoEditor::VideoEditor(
 , _dimensions(descriptor.dimensions)
 , _duration(std::max(descriptor.duration, crl::time(1)))
 , _data(descriptor.data)
-, _initial(descriptor.initial) {
+, _initial(descriptor.initial)
+, _player(std::make_unique<SegmentPlayer>(
+	_path,
+	_content,
+	SegmentPlayerOptions{ .keepAlpha = _data.webmSticker })) {
 	_geometry = _initial.geometry;
 	_gif = _initial.gif;
+	_gifAllowed = (SourceSize(_path, _content) <= kMaxGifSize);
 	_geometry.cropType = _data.editor.cropType;
 	_geometry.cropMode = _data.editor.cropMode;
 	if (!_geometry.crop.isValid() && !_data.exactSize.isEmpty()) {
@@ -273,69 +268,21 @@ void VideoEditor::setupTimeline() {
 	_from = _timeline->from();
 	_till = _timeline->till();
 	_cover = _timeline->cover();
-	_position = _from;
-
-	struct State {
-		base::Timer timer;
-		crl::time pending = -1;
-	};
-	const auto state = lifetime().make_state<State>();
-	state->timer.setCallback([=] {
-		if (state->pending < 0) {
-			return;
-		}
-		if (_awaitingSeekFrame
-			&& (crl::now() - _lastRestartTime) < kSeekFrameWait) {
-			state->timer.callOnce(kSeekThrottle);
-			return;
-		}
-		const auto position = state->pending;
-		state->pending = -1;
-		restart(position);
-	});
-	const auto seek = [=](crl::time position) {
-		state->pending = position;
-		const auto cached = _dragging && showScrubFrame(position);
-		if (!cached && _dragging && _scrubStep > 0) {
-			if (position > _scrubTill) {
-				prepareScrubFrames(
-					std::max(position - kScrubBehind, crl::time(0)),
-					position + kScrubAhead);
-			} else if (position < _scrubFrom) {
-				prepareScrubFrames(
-					std::max(position - kScrubAhead, crl::time(0)),
-					position + kScrubBehind);
-			}
-		}
-		if (!state->timer.isActive()) {
-			state->timer.callOnce(cached ? kSharpFrameDelay : kSeekThrottle);
-		}
-	};
-
-	_timeline->zoomChanges(
-	) | rpl::on_next([=](std::pair<crl::time, crl::time> range) {
-		const auto covered = (_scrubStep > 0)
-			&& (range.first >= _scrubFrom)
-			&& (range.second <= _scrubTill);
-		if (range.second > range.first && covered) {
-			return;
-		}
-		prepareScrubFrames(range.first, range.second);
-	}, _timeline->lifetime());
+	_seeker = std::make_unique<TimelineSeeker>(
+		_timeline.get(),
+		_player.get());
 
 	_timeline->trimChanges(
-	) | rpl::on_next([=](crl::time edge) {
+	) | rpl::on_next([=] {
 		_from = _timeline->from();
 		_till = _timeline->till();
 		_cover = _timeline->cover();
 		refreshSizeEstimate();
-		seek(edge);
 	}, _timeline->lifetime());
 
 	_timeline->coverChanges(
 	) | rpl::on_next([=](crl::time cover) {
 		_cover = cover;
-		seek(cover);
 		updateBubble();
 		refreshCoverPreview();
 	}, _timeline->lifetime());
@@ -343,33 +290,8 @@ void VideoEditor::setupTimeline() {
 	_timeline->draggingChanges(
 	) | rpl::on_next([=](bool dragging) {
 		_dragging = dragging;
-		if (!dragging) {
-			_scrubFrame = QImage();
-			prepareScrubFrames(0, 0);
-		} else {
-			const auto grabbed = _timeline->currentGrabTime();
-			const auto covered = (_scrubStep > 0)
-				&& (grabbed >= _scrubFrom)
-				&& (grabbed <= _scrubTill);
-			if (grabbed >= 0 && !covered) {
-				prepareScrubFrames(
-					std::max(grabbed - kScrubPrefetch, crl::time(0)),
-					grabbed + kScrubPrefetch);
-			}
-		}
 		if (dragging) {
 			_draggingHead = _timeline->draggingHead();
-			if (_instance) {
-				_instance->pause();
-			}
-		} else {
-			state->timer.cancel();
-			const auto latest = (state->pending >= 0)
-				? state->pending
-				: _position;
-			state->pending = -1;
-			const auto resume = std::clamp(latest, _from, _till);
-			restart((resume >= _till) ? _from : resume);
 		}
 		if (!dragging && _draggingHead) {
 			_draggingHead = false;
@@ -460,6 +382,7 @@ void VideoEditor::setupControls() {
 		_gifButton = base::make_unique_q<Ui::IconButton>(
 			bar,
 			st::videoEditorGifButton);
+		setupGifButton();
 	}
 	_confirm = base::make_unique_q<BarTextButton>(
 		bar,
@@ -593,58 +516,104 @@ void VideoEditor::setupControls() {
 		refreshSizeEstimate();
 		invalidateCoverPreview();
 	});
-	if (_gifButton) {
-		const auto refresh = [=] {
-			const auto icon = _gif
-				? &st::videoEditorGifIconActive
-				: nullptr;
-			_gifButton->setIconOverride(icon, icon);
-		};
-		refresh();
-		_gifButton->setClickedCallback([=] {
-			_gif = !_gif;
-			refresh();
-			refreshSizeEstimate();
-		});
-	}
 	_cancelButton->setClickedCallback([=] {
 		_cancel.fire({});
 	});
 	_confirm->setClickedCallback([=] {
+		_timeline->commitPendingEdit();
 		_done.fire(collect());
 	});
 }
 
-void VideoEditor::setupStreaming() {
-	using namespace Media::Streaming;
-
-	auto loader = _path.isEmpty()
-		? MakeBytesLoader(_content)
-		: MakeFileLoader(_path);
-	if (!loader) {
+void VideoEditor::setupGifButton() {
+	if (!_gifButton) {
 		return;
 	}
-	_instance = std::make_unique<Instance>(
-		std::make_shared<Document>(std::move(loader)),
-		nullptr);
-	if (!_instance->valid()) {
-		_instance = nullptr;
+	const auto refresh = [=] {
+		const auto icon = _gif
+			? &st::videoEditorGifIconActive
+			: nullptr;
+		_gifButton->setIconOverride(icon, icon);
+	};
+	refresh();
+	_gifButton->setClickedCallback([=] {
+		if (!_gifAllowed) {
+			return;
+		}
+		_gif = !_gif;
+		refresh();
+		refreshSizeEstimate();
+	});
+	if (_gifAllowed) {
 		return;
 	}
-	_instance->lockPlayer();
-	_instance->player().updates(
-	) | rpl::on_next_error([=](Update &&update) {
-		handleUpdate(std::move(update));
-	}, [=](Error &&) {
-		_instance = nullptr;
-		update();
-	}, _instance->lifetime());
-
-	restart(_from);
+	_gifButton->setDisabled(true);
+	_gifButton->setIconColorOverride(st::photoEditorButtonIconFgInactive->c);
+	base::install_event_filter(_gifButton, [](not_null<QEvent*> e) {
+		const auto type = e->type();
+		return (type == QEvent::MouseButtonPress
+			|| type == QEvent::MouseButtonDblClick)
+			? base::EventFilterResult::Cancel
+			: base::EventFilterResult::Continue;
+	}, _gifButton->lifetime());
+	_gifButton->events() | rpl::on_next([=](not_null<QEvent*> e) {
+		const auto type = e->type();
+		if (type == QEvent::Enter) {
+			showGifTooltip();
+		} else if (type == QEvent::Leave) {
+			hideGifTooltip();
+		}
+	}, _gifButton->lifetime());
 }
 
-bool VideoEditor::held() const {
-	return _dragging || _userPaused;
+void VideoEditor::showGifTooltip() {
+	if (_gifAllowed || !_gifButton) {
+		return;
+	}
+	if (!_gifTooltip) {
+		const auto parent = parentWidget();
+		if (!parent) {
+			return;
+		}
+		const auto text = tr::marked(tr::lng_video_editor_gif_too_large(
+			tr::now,
+			lt_size,
+			(QString::number(kMaxGifSize / (1024 * 1024))
+				+ ' '
+				+ tr::lng_size_megabytes(tr::now))));
+		_gifTooltip = base::make_unique_q<Ui::ImportantTooltip>(
+			parent,
+			Ui::MakeNiceTooltipLabel(
+				parent,
+				rpl::single(text),
+				st::videoEditorGifTooltipMaxWidth,
+				st::defaultImportantTooltipLabel),
+			st::defaultImportantTooltip);
+		_gifTooltip->setAttribute(Qt::WA_TransparentForMouseEvents);
+	}
+	const auto parent = _gifTooltip->parentWidget();
+	_gifTooltip->pointAt(
+		Ui::MapFrom(parent, _gifButton, _gifButton->rect()),
+		RectPart::Top | RectPart::Center);
+	_gifTooltip->toggleAnimated(true);
+}
+
+void VideoEditor::hideGifTooltip() {
+	if (_gifTooltip) {
+		_gifTooltip->toggleAnimated(false);
+	}
+}
+
+void VideoEditor::setupStreaming() {
+	_player->repaints(
+	) | rpl::on_next([=] {
+		update();
+		if (_player->held()) {
+			updateBubble();
+		}
+	}, lifetime());
+
+	_player->start();
 }
 
 void VideoEditor::setupTapToPause() {
@@ -683,15 +652,11 @@ void VideoEditor::setupTapToPause() {
 }
 
 void VideoEditor::togglePause() {
-	if (!_instance) {
+	if (!_player->valid()) {
 		return;
 	}
 	_userPaused = !_userPaused;
-	if (_userPaused) {
-		_instance->pause();
-	} else {
-		_instance->resume();
-	}
+	_player->setPaused(_userPaused);
 	update();
 }
 
@@ -848,166 +813,6 @@ void VideoEditor::updateBubble() {
 	_bubble->update();
 }
 
-void VideoEditor::prepareScrubFrames(crl::time from, crl::time till) {
-	if (_scrubCancel) {
-		_scrubCancel->store(true);
-		_scrubCancel = nullptr;
-	}
-	_scrubFrames.clear();
-	if (till <= from || _frameRect.isEmpty()) {
-		_scrubStep = 0;
-		return;
-	}
-	const auto count = int((till - from) / kScrubStep) + 1;
-	auto positions = std::vector<crl::time>();
-	positions.reserve(count);
-	for (auto i = 0; i != count; ++i) {
-		positions.push_back(from + i * kScrubStep);
-	}
-	_scrubFrom = from;
-	_scrubTill = from + (count - 1) * kScrubStep;
-	_scrubStep = kScrubStep;
-	_scrubFrames = std::vector<QImage>(count);
-
-	auto box = _frameRect.size() * style::DevicePixelRatio();
-	if (box.width() > kScrubMaxSide || box.height() > kScrubMaxSide) {
-		box.scale(kScrubMaxSide, kScrubMaxSide, Qt::KeepAspectRatio);
-	}
-	const auto frameBytes = int64(box.width()) * box.height() * 4;
-	if (frameBytes > 0 && frameBytes * count > kScrubMemoryBudget) {
-		const auto factor = std::sqrt(
-			double(kScrubMemoryBudget) / double(frameBytes * count));
-		box = QSize(
-			std::max(int(box.width() * factor), 1),
-			std::max(int(box.height() * factor), 1));
-	}
-	const auto cancel = std::make_shared<std::atomic<bool>>(false);
-	_scrubCancel = cancel;
-	const auto path = _path;
-	const auto content = _content;
-	const auto weak = base::make_weak(this);
-	const auto chunkSize = (count + kScrubChunks - 1) / kScrubChunks;
-	for (auto chunk = 0; chunk != kScrubChunks; ++chunk) {
-		const auto first = chunk * chunkSize;
-		const auto last = std::min(count, first + chunkSize);
-		if (first >= last) {
-			break;
-		}
-		auto part = std::vector<crl::time>(
-			positions.begin() + first,
-			positions.begin() + last);
-		crl::async([=, part = std::move(part)] {
-			Media::Video::ExtractFrames(path, content, {
-				.positions = part,
-				.box = box,
-			}, [&](int index, QImage &&frame) {
-				if (cancel->load()) {
-					return false;
-				}
-				const auto global = first + index;
-				crl::on_main(weak, [=, frame = std::move(frame)]() mutable {
-					if (cancel->load()
-						|| global >= int(_scrubFrames.size())) {
-						return;
-					}
-					_scrubFrames[global] = std::move(frame);
-				});
-				return true;
-			});
-		});
-	}
-}
-
-bool VideoEditor::showScrubFrame(crl::time position) {
-	if (_scrubFrames.empty() || _scrubStep <= 0) {
-		return false;
-	}
-	const auto count = int(_scrubFrames.size());
-	const auto index = int(base::SafeRound(
-		(position - _scrubFrom) / float64(_scrubStep)));
-	if (index < 0 || index >= count) {
-		return false;
-	}
-	for (auto delta = 0; delta != 4; ++delta) {
-		for (const auto i : { index - delta, index + delta }) {
-			if (i >= 0 && i < count && !_scrubFrames[i].isNull()) {
-				_scrubFrame = _scrubFrames[i];
-				_scrubFramePosition = position;
-				update();
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-void VideoEditor::restart(crl::time position) {
-	if (!_instance) {
-		return;
-	}
-	using namespace Media::Streaming;
-	if (!_frameRect.isEmpty()
-		&& _instance->player().ready()
-		&& !_instance->player().videoSize().isEmpty()) {
-		_lastFrame = _instance->frame(FrameRequestFor(
-			_frameRect.size(),
-			_data.webmSticker)).copy();
-	}
-	_position = std::clamp(position, _from, _till);
-	_awaitingSeekFrame = true;
-	_lastRestartTime = crl::now();
-	auto options = PlaybackOptions();
-	options.mode = Mode::Video;
-	options.position = _position;
-	options.loop = false;
-	_instance->play(options);
-	if (held()) {
-		_instance->pause();
-	}
-	if (!_dragging && _timeline) {
-		_timeline->setPlaybackPosition(_position);
-	}
-	update();
-}
-
-void VideoEditor::handleUpdate(Media::Streaming::Update &&update) {
-	using namespace Media::Streaming;
-	v::match(update.data, [&](Information &) {
-		this->update();
-	}, [&](PreloadedVideo) {
-	}, [&](UpdateVideo &data) {
-		_position = data.position;
-		_awaitingSeekFrame = false;
-		if (_dragging
-			&& !_scrubFrame.isNull()
-			&& std::abs(data.position - _scrubFramePosition)
-				<= 2 * kScrubStep) {
-			_scrubFrame = QImage();
-		}
-		if (held()) {
-			_instance->pause();
-			this->update();
-			updateBubble();
-			return;
-		}
-		if (_position >= _till) {
-			restart(_from);
-			return;
-		}
-		if (_timeline) {
-			_timeline->setPlaybackPosition(_position);
-		}
-		this->update();
-	}, [&](PreloadedAudio) {
-	}, [&](UpdateAudio) {
-	}, [&](WaitingForData) {
-	}, [&](SpeedEstimate) {
-	}, [&](MutedByOther) {
-	}, [&](Finished) {
-		restart(_from);
-	});
-}
-
 void VideoEditor::applyGeometry() {
 	const auto size = this->size();
 	if (size.isEmpty()) {
@@ -1074,8 +879,10 @@ void VideoEditor::applyGeometry() {
 	_frameMatrix.rotate(_geometry.angle);
 
 	const auto geometry = _frameMatrix.mapRect(_frameRect);
+	const auto m = _crop->cropMargins();
 	_crop->applyTransform(
-		geometry + _crop->cropMargins(),
+		geometry + m,
+		QPoint(m.left(), m.top()),
 		_geometry.angle,
 		_geometry.flipped,
 		frameSizeF);
@@ -1117,23 +924,7 @@ void VideoEditor::paint(QPainter &p) {
 	if (_frameRect.isEmpty()) {
 		return;
 	}
-	auto frame = QImage();
-	if (_dragging && !_scrubFrame.isNull()) {
-		frame = _scrubFrame;
-	} else if (_instance
-		&& _instance->player().ready()
-		&& !_instance->player().videoSize().isEmpty()) {
-		frame = _instance->frame(FrameRequestFor(
-			_frameRect.size(),
-			_data.webmSticker));
-		if (!held()) {
-			// Marking a frame shown lets the player walk past a pause.
-			_instance->markFrameShown();
-		}
-	}
-	if (frame.isNull()) {
-		frame = _lastFrame;
-	}
+	const auto frame = _player->frame(_frameRect.size());
 	if (frame.isNull()) {
 		return;
 	}
@@ -1169,6 +960,7 @@ void VideoEditor::keyPressEvent(QKeyEvent *e) {
 	if (e->key() == Qt::Key_Escape) {
 		_cancel.fire({});
 	} else if (e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return) {
+		_timeline->commitPendingEdit();
 		_done.fire(collect());
 	}
 }
