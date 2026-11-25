@@ -248,8 +248,10 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: ${{ env.TBUILD }}\tdesktop\out
-          key: out-ninja-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: out-ninja-${{ steps.key.outputs.value }}-
+          key: out-v2-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            out-v2-${{ steps.key.outputs.value }}-
+            out-ninja-${{ steps.key.outputs.value }}-45682190254-
 
       - name: Restore source timestamps
         run: python "$env:TBUILD\tdesktop\.github\scripts\source_mtime.py" restore "$env:TBUILD\tdesktop"
@@ -309,15 +311,24 @@ jobs:
           retention-days: 7
 
       - name: Build regular edition
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           @(
             '@echo off',
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
-            'cmake -S .. -B ..\out -D AYU_COMMUNITY_BUILD=OFF || exit /b 1',
-            'cmake --build ..\out --config Release --target Telegram'
+            'call configure.bat -G "Ninja Multi-Config" -D AYU_COMMUNITY_BUILD=OFF || exit /b 1',
+            'cmake --build ..\out --config Release --target Telegram -- -k 0'
           ) | Set-Content "$env:RUNNER_TEMP\regular.bat" -Encoding ascii
-          cmd /c "$env:RUNNER_TEMP\regular.bat"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cmd /c "$env:RUNNER_TEMP\regular.bat > $env:RUNNER_TEMP\regular.log 2>&1"
+          $failed = $LASTEXITCODE -ne 0
+          $steps = Select-String -Path "$env:RUNNER_TEMP\regular.log" -Pattern '^\[\d+/\d+\]' | Select-Object -Last 1
+          Write-Host "::notice::Regular edition progress: $(if ($steps) { ($steps.Line -split ' ')[0] } else { 'none' })"
+          if ($failed) {
+            python "$env:TBUILD\tdesktop\.github\scripts\annotate.py" errors "$env:RUNNER_TEMP\regular.log"
+            exit 1
+          }
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\regular" | Out-Null
           Copy-Item "$env:TBUILD\tdesktop\out\Release\AyuGram.exe" "$env:RUNNER_TEMP\regular"
 
@@ -336,4 +347,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: ${{ env.TBUILD }}\tdesktop\out
-          key: out-ninja-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: out-v2-${{ steps.key.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
