@@ -184,6 +184,18 @@ jobs:
             Write-Host '::error::Set TDESKTOP_API_ID and TDESKTOP_API_HASH repository secrets.'
             exit 1
           }
+          $failed = $false
+          $rules = [ordered]@{ API_ID = '^\d+$'; API_HASH = '^[0-9a-fA-F]{32}$' }
+          foreach ($name in $rules.Keys) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            $clean = $value.Trim()
+            Write-Host "::notice::TDESKTOP_$name has $($value.Length - $clean.Length) extra whitespace characters and $(($clean -split '\r?\n').Count) lines."
+            if ($clean -notmatch $rules[$name]) {
+              Write-Host "::error::TDESKTOP_$name has a wrong format."
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
 
       - name: Prepare directories
         run: |
@@ -253,6 +265,8 @@ jobs:
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
             'call configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON -D AYU_COMMUNITY_BUILD=ON || exit /b 1'
           ) | Set-Content "$env:RUNNER_TEMP\configure.bat" -Encoding ascii
+          $env:API_ID = $env:API_ID.Trim()
+          $env:API_HASH = $env:API_HASH.Trim()
           cmd /c "$env:RUNNER_TEMP\configure.bat > $env:RUNNER_TEMP\configure.log 2>&1"
           if ($LASTEXITCODE -ne 0) {
             python "$env:TBUILD\tdesktop\.github\scripts\annotate.py" tail "$env:RUNNER_TEMP\configure.log"
