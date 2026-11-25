@@ -27,6 +27,7 @@ namespace Editor {
 class CaptionBar;
 class Crop;
 class SegmentPlayer;
+class ScrubFrames;
 class TimelineSeeker;
 class VideoTimeline;
 class VideoQualitySlider;
@@ -80,6 +81,8 @@ private:
 	void setupTapToPause();
 	void updateBubble();
 	void startCapture();
+	void showScrubFrame(crl::time position);
+	[[nodiscard]] QSize scrubBox() const;
 	[[nodiscard]] QRect captureFrom() const;
 	[[nodiscard]] QSize bubbleSize() const;
 	void refreshCoverPreview();
@@ -128,6 +131,9 @@ private:
 	base::unique_qptr<Crop> _crop;
 	base::unique_qptr<VideoTimeline> _timeline;
 	std::unique_ptr<TimelineSeeker> _seeker;
+	std::unique_ptr<ScrubFrames> _scrub;
+	QImage _scrubFrame;
+	crl::time _scrubPosition = 0;
 	base::unique_qptr<VideoQualitySlider> _quality;
 	base::unique_qptr<Ui::RpWidget> _controls;
 	base::unique_qptr<CaptionBar> _captionBar;

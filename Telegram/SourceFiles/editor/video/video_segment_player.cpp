@@ -18,6 +18,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Editor {
 namespace {
 
+constexpr auto kFrameWait = crl::time(350);
+
 [[nodiscard]] Media::Streaming::FrameRequest FrameRequestFor(
 		QSize size,
 		bool keepAlpha) {
@@ -119,6 +121,8 @@ void SegmentPlayer::restart(crl::time position) {
 	using namespace Media::Streaming;
 	keepLastFrame();
 	_position = std::clamp(position, _from, segmentTill());
+	_awaitingFrame = !_options.audio;
+	_lastRestart = crl::now();
 	auto options = PlaybackOptions();
 	options.mode = _options.audio
 		? Mode::Audio
@@ -231,8 +235,14 @@ void SegmentPlayer::handleError() {
 	_repaints.fire({});
 }
 
+bool SegmentPlayer::awaitingFrame() const {
+	return _awaitingFrame && (crl::now() - _lastRestart < kFrameWait);
+}
+
 void SegmentPlayer::handlePosition(crl::time position) {
 	_position = position;
+	_awaitingFrame = false;
+	_decodedPositions.fire_copy(position);
 	if (held()) {
 		_instance->pause();
 		_repaints.fire({});

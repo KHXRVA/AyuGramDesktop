@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/timer.h"
 #include "base/unique_qptr.h"
 #include "base/weak_ptr.h"
 #include "ui/effects/animations.h"
@@ -68,6 +69,10 @@ public:
 	[[nodiscard]] rpl::producer<bool> draggingChanges() const {
 		return _draggingChanges.events();
 	}
+	[[nodiscard]] auto holdZoomChanges() const
+	-> rpl::producer<std::pair<crl::time, crl::time>> {
+		return _holdZoomChanges.events();
+	}
 
 	void setTrim(crl::time from, crl::time till);
 	void setPlaybackPosition(crl::time position);
@@ -76,6 +81,7 @@ public:
 	void setSizeLabel(const QString &text);
 
 	[[nodiscard]] bool draggingHead() const;
+	[[nodiscard]] crl::time grabbedTime() const;
 
 	[[nodiscard]] int resizeGetHeight(int newWidth) override;
 
@@ -116,6 +122,10 @@ private:
 		Hint,
 		Label,
 	};
+	struct HoldView {
+		float64 span = 0.;
+		float64 from = 0.;
+	};
 	struct DurationLabel {
 		QString text;
 		QRect rect;
@@ -144,6 +154,13 @@ private:
 	void updateEdgeScroll(QPoint position);
 	bool edgeScrollStep(crl::time now);
 	[[nodiscard]] bool grabClamped(bool forward) const;
+
+	void restartHold(QPoint position);
+	void holdZoomIn();
+	void holdZoomOut();
+	void cancelHold();
+	void animateHoldView(HoldView view);
+	void holdZoomStep();
 
 	[[nodiscard]] bool selectionHiddenLeft() const;
 	[[nodiscard]] bool selectionHiddenRight() const;
@@ -191,6 +208,15 @@ private:
 	Ui::Animations::Basic _edgeScrollAnimation;
 	Ui::ScrollDirectionLock _wheelDirectionLock;
 
+	base::Timer _holdTimer;
+	QPoint _holdAnchor;
+	HoldView _holdStart;
+	HoldView _holdTarget;
+	std::optional<HoldView> _holdRestore;
+	Ui::Animations::Simple _holdAnimation;
+	bool _holdZoomed = false;
+	bool _holdStepping = false;
+
 	bool _hintLeftShown = false;
 	bool _hintRightShown = false;
 	bool _hintGrabLeft = false;
@@ -201,6 +227,7 @@ private:
 	rpl::event_stream<crl::time> _trimChanges;
 	rpl::event_stream<crl::time> _coverChanges;
 	rpl::event_stream<bool> _draggingChanges;
+	rpl::event_stream<std::pair<crl::time, crl::time>> _holdZoomChanges;
 
 };
 

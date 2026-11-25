@@ -60,6 +60,10 @@ public:
 	[[nodiscard]] rpl::producer<crl::time> positionUpdates() const {
 		return _positionUpdates.events();
 	}
+	[[nodiscard]] rpl::producer<crl::time> decodedPositions() const {
+		return _decodedPositions.events();
+	}
+	[[nodiscard]] bool awaitingFrame() const;
 	[[nodiscard]] rpl::producer<> repaints() const {
 		return _repaints.events();
 	}
@@ -89,8 +93,11 @@ private:
 	bool _pausedOthers = false;
 	bool _paused = false;
 	bool _seeking = false;
+	bool _awaitingFrame = false;
+	crl::time _lastRestart = 0;
 
 	rpl::event_stream<crl::time> _positionUpdates;
+	rpl::event_stream<crl::time> _decodedPositions;
 	rpl::event_stream<> _repaints;
 
 };

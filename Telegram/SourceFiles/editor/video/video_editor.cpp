@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "editor/editor_caption_bar.h"
 #include "editor/editor_crop.h"
 #include "editor/video/video_quality_slider.h"
+#include "editor/video/video_scrub_frames.h"
 #include "editor/video/video_segment_player.h"
 #include "editor/video/video_timeline.h"
 #include "editor/video/video_timeline_seeker.h"
@@ -301,8 +302,27 @@ void VideoEditor::setupTimeline() {
 		_timeline.get(),
 		_player.get());
 
+	if (!_data.webmSticker) {
+		_scrub = std::make_unique<ScrubFrames>(_path, _content);
+		_timeline->holdZoomChanges(
+		) | rpl::on_next([=](std::pair<crl::time, crl::time> range) {
+			if (!_scrub->covers(range.first, range.second)) {
+				_scrub->prepare(range.first, range.second, scrubBox());
+			}
+		}, _timeline->lifetime());
+		_player->decodedPositions(
+		) | rpl::on_next([=](crl::time position) {
+			if (!_scrubFrame.isNull()
+				&& (std::abs(position - _scrubPosition)
+					<= 2 * ScrubFrames::Step())) {
+				_scrubFrame = QImage();
+			}
+		}, _timeline->lifetime());
+	}
+
 	_timeline->trimChanges(
-	) | rpl::on_next([=] {
+	) | rpl::on_next([=](crl::time edge) {
+		showScrubFrame(edge);
 		_from = _timeline->from();
 		_till = _timeline->till();
 		_cover = _timeline->cover();
@@ -312,6 +332,9 @@ void VideoEditor::setupTimeline() {
 	_timeline->coverChanges(
 	) | rpl::on_next([=](crl::time cover) {
 		_cover = cover;
+		if (_timeline->draggingHead()) {
+			showScrubFrame(cover);
+		}
 		updateBubble();
 		refreshCoverPreview();
 	}, _timeline->lifetime());
@@ -322,6 +345,15 @@ void VideoEditor::setupTimeline() {
 		if (dragging) {
 			_draggingHead = _timeline->draggingHead();
 		}
+		if (_scrub) {
+			_scrubFrame = QImage();
+			const auto grabbed = _timeline->grabbedTime();
+			if (!dragging) {
+				_scrub->clear();
+			} else if (grabbed >= 0) {
+				_scrub->prepareAround(grabbed, scrubBox());
+			}
+		}
 		if (!dragging && _draggingHead) {
 			_draggingHead = false;
 			startCapture();
@@ -329,6 +361,24 @@ void VideoEditor::setupTimeline() {
 		}
 		updateBubble();
 	}, _timeline->lifetime());
+}
+
+QSize VideoEditor::scrubBox() const {
+	return frameRequestSize() * style::DevicePixelRatio();
+}
+
+void VideoEditor::showScrubFrame(crl::time position) {
+	if (!_scrub || !_dragging) {
+		return;
+	}
+	auto frame = _scrub->find(position);
+	if (frame.isNull()) {
+		_scrub->follow(position, scrubBox());
+		return;
+	}
+	_scrubFrame = std::move(frame);
+	_scrubPosition = position;
+	update();
 }
 
 void VideoEditor::setupQuality() {
@@ -998,7 +1048,11 @@ void VideoEditor::paint(QPainter &p) {
 		return;
 	}
 	const auto frame = _player->frame(frameRequestSize());
-	const auto &image = frame.isNull() ? _preview : frame;
+	const auto &image = (_dragging && !_scrubFrame.isNull())
+		? _scrubFrame
+		: frame.isNull()
+		? _preview
+		: frame;
 	if (image.isNull()) {
 		return;
 	}

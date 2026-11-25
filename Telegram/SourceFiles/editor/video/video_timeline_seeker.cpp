@@ -14,6 +14,7 @@ namespace Editor {
 namespace {
 
 constexpr auto kSeekThrottle = crl::time(120);
+constexpr auto kAwaitRetry = crl::time(30);
 
 } // namespace
 
@@ -23,6 +24,10 @@ TimelineSeeker::TimelineSeeker(
 : _timeline(timeline)
 , _player(player)
 , _timer([=] {
+	if (_pending >= 0 && _player->awaitingFrame()) {
+		_timer.callOnce(kAwaitRetry);
+		return;
+	}
 	const auto position = std::exchange(_pending, crl::time(-1));
 	if (position >= 0) {
 		_player->restart(position);

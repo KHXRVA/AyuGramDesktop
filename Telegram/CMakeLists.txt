@@ -1182,6 +1182,8 @@ PRIVATE
     editor/video/video_editor_quality.h
     editor/video/video_quality_slider.cpp
     editor/video/video_quality_slider.h
+    editor/video/video_scrub_frames.cpp
+    editor/video/video_scrub_frames.h
     editor/video/video_segment_player.cpp
     editor/video/video_segment_player.h
     editor/video/video_timeline.cpp

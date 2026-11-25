@@ -26,6 +26,10 @@ constexpr auto kZoomStep = 1.2;
 constexpr auto kZoomSnap = 0.001;
 constexpr auto kMinVisibleSpan = crl::time(2000);
 constexpr auto kMinSelection = crl::time(100);
+constexpr auto kHoldDuration = crl::time(600);
+constexpr auto kHoldSlop = 4;
+constexpr auto kHoldZoomDuration = crl::time(400);
+constexpr auto kHoldMaxSpan = crl::time(4000);
 constexpr auto kCompactHandleSpans = 3;
 constexpr auto kEdgeScrollFrame = crl::time(16);
 constexpr auto kEdgeScrollSpeed = 9.; // Per second per pixel of overshoot.
@@ -188,7 +192,8 @@ TrimTimeline::TrimTimeline(
 , _from(0)
 , _till(_maxDuration)
 , _cover(0)
-, _edgeScrollAnimation([=](crl::time now) { return edgeScrollStep(now); }) {
+, _edgeScrollAnimation([=](crl::time now) { return edgeScrollStep(now); })
+, _holdTimer([=] { holdZoomIn(); }) {
 	setMouseTracking(true);
 
 	_from = std::clamp(
@@ -488,6 +493,15 @@ bool TrimTimeline::draggingHead() const {
 	return (_grab == Grab::Head);
 }
 
+crl::time TrimTimeline::grabbedTime() const {
+	switch (_grab) {
+	case Grab::Left: return _from;
+	case Grab::Right: return _till;
+	case Grab::Head: return _cover;
+	default: return -1;
+	}
+}
+
 void TrimTimeline::setTrim(crl::time from, crl::time till) {
 	const auto minimum = minSelection();
 	from = std::clamp(
@@ -544,7 +558,7 @@ bool TrimTimeline::setVisibleRange(float64 zoom, float64 from) {
 	_zoom = zoom;
 	_visibleFrom = from;
 	visibleRangeChanged();
-	if (grabMovesSelection()) {
+	if (!_holdStepping && grabMovesSelection()) {
 		applyGrab(_dragPosition);
 	}
 	updateDurationFieldGeometry();
@@ -597,10 +611,98 @@ void TrimTimeline::updateEdgeScroll(QPoint position) {
 	}
 }
 
+void TrimTimeline::restartHold(QPoint position) {
+	_holdAnchor = position;
+	if (_holdZoomed || grabbedTime() < 0) {
+		_holdTimer.cancel();
+		return;
+	}
+	_holdTimer.callOnce(kHoldDuration);
+}
+
+void TrimTimeline::holdZoomIn() {
+	const auto time = grabbedTime();
+	const auto strip = stripRect();
+	const auto span = std::clamp(
+		_duration / 12,
+		kMinVisibleSpan,
+		kHoldMaxSpan);
+	if (time < 0
+		|| strip.width() <= 0
+		|| span * 4. >= visibleSpan() * 3.) {
+		return;
+	}
+	if (!_holdRestore) {
+		_holdRestore = HoldView{ visibleSpan(), _visibleFrom };
+	}
+	_holdZoomed = true;
+	const auto fraction = std::clamp(
+		(_dragPosition.x() - _grabShift - strip.x())
+			/ float64(strip.width()),
+		0.,
+		1.);
+	const auto from = std::clamp(
+		time - span * fraction,
+		0.,
+		float64(_duration - span));
+	animateHoldView({ float64(span), from });
+	const auto visible = crl::time(base::SafeRound(from));
+	_holdZoomChanges.fire({ visible, visible + span });
+}
+
+void TrimTimeline::holdZoomOut() {
+	_holdTimer.cancel();
+	_holdZoomed = false;
+	if (const auto restore = _holdRestore) {
+		animateHoldView(*restore);
+	}
+}
+
+void TrimTimeline::cancelHold() {
+	_holdTimer.cancel();
+	_holdAnimation.stop();
+	_holdZoomed = false;
+	_holdRestore = std::nullopt;
+}
+
+void TrimTimeline::animateHoldView(HoldView view) {
+	_scrollAnimation.stop();
+	_holdAnimation.stop();
+	_holdStart = { visibleSpan(), _visibleFrom };
+	_holdTarget = view;
+	_holdAnimation.start(
+		[=] { holdZoomStep(); },
+		0.,
+		1.,
+		kHoldZoomDuration,
+		anim::easeOutCubic);
+}
+
+void TrimTimeline::holdZoomStep() {
+	const auto progress = _holdAnimation.value(1.);
+	const auto span = _holdStart.span
+		+ (_holdTarget.span - _holdStart.span) * progress;
+	const auto from = _holdStart.from
+		+ (_holdTarget.from - _holdStart.from) * progress;
+	if (span <= 0.) {
+		return;
+	}
+	const auto grabbed = grabbedTime();
+	_holdStepping = true;
+	setVisibleRange(_duration / span, from);
+	_holdStepping = false;
+	if (grabbed >= 0) {
+		_grabShift = _dragPosition.x() - xAt(grabbed);
+	}
+	if (progress >= 1. && !_holdZoomed) {
+		_holdRestore = std::nullopt;
+	}
+}
+
 bool TrimTimeline::edgeScrollStep(crl::time now) {
 	const auto dt = std::min(now - _edgeScrollLast, kEdgeScrollFrame);
 	_edgeScrollLast = now;
-	if (dt <= 0) {
+	if (dt <= 0 || _holdAnimation.animating()) {
 		return true;
 	}
 	const auto strip = stripRect();
@@ -680,6 +782,7 @@ void TrimTimeline::updateHints() {
 }
 
 void TrimTimeline::scrollToSelection() {
+	cancelHold();
 	const auto span = visibleSpan();
 	const auto target = (_till - _from <= span)
 		? ((_from + _till) / 2. - span / 2.)
@@ -778,6 +881,7 @@ void TrimTimeline::mousePressEvent(QMouseEvent *e) {
 			return;
 		}
 		_scrollAnimation.stop();
+		cancelHold();
 		_grab = Grab::Scroll;
 		_grabButton = e->button();
 		_dragPosition = position;
@@ -793,7 +897,9 @@ void TrimTimeline::mousePressEvent(QMouseEvent *e) {
 		return;
 	}
 	_scrollAnimation.stop();
+	_holdAnimation.stop();
 	if (_grab == Grab::Scroll) {
+		cancelHold();
 		updateCursor(_grab);
 		return;
 	} else if (_grab == Grab::Hint) {
@@ -818,6 +924,7 @@ void TrimTimeline::mousePressEvent(QMouseEvent *e) {
 	}
 	_draggingChanges.fire(true);
 	applyGrab(position);
+	restartHold(position);
 }
 
 void TrimTimeline::mouseMoveEvent(QMouseEvent *e) {
@@ -836,6 +943,9 @@ void TrimTimeline::mouseMoveEvent(QMouseEvent *e) {
 		return;
 	}
 	_dragPosition = position;
+	if ((position - _holdAnchor).manhattanLength() > kHoldSlop) {
+		restartHold(position);
+	}
 	applyGrab(position);
 	updateEdgeScroll(position);
 }
@@ -872,6 +982,7 @@ void TrimTimeline::releaseGrab() {
 		headGrabChanged(false);
 	}
 	if (wasSelection) {
+		holdZoomOut();
 		_draggingChanges.fire(false);
 	}
 	update();
@@ -881,6 +992,7 @@ void TrimTimeline::wheelEvent(QWheelEvent *e) {
 	const auto angle = e->angleDelta();
 	const auto delta = Ui::ScrollDeltaF(e);
 	const auto locked = _wheelDirectionLock.update(e->phase(), delta);
+	cancelHold();
 	const auto horizontal = locked
 		? (*locked == Qt::Horizontal)
 		: (std::abs(angle.x()) > std::abs(angle.y()));
@@ -901,6 +1013,7 @@ bool TrimTimeline::eventHook(QEvent *e) {
 	} else if (type == QEvent::NativeGesture) {
 		const auto gesture = static_cast<QNativeGestureEvent*>(e);
 		const auto type = gesture->gestureType();
+		cancelHold();
 		if (type == Qt::ZoomNativeGesture) {
 			const auto global = gesture->globalPos();
 			zoomBy(1. + gesture->value(), mapFromGlobal(global).x());
