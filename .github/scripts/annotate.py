@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 
@@ -30,6 +31,10 @@ def main():
     with open(path, encoding="utf-8", errors="replace") as f:
         lines = [line.rstrip() for line in f if line.strip()]
     lines = [line for line in lines if not line.startswith("Updating files:")]
+    for name in ("API_ID", "API_HASH"):
+        value = os.environ.get(name)
+        if value:
+            lines = [line.replace(value, "***") for line in lines]
     print("\n".join(lines[-400:]))
     if mode == "errors":
         seen = set()

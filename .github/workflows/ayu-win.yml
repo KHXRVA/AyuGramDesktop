@@ -245,8 +245,11 @@ jobs:
             "call `"$env:RUNNER_TEMP\env.bat`" || exit /b 1",
             'call configure.bat x64 -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON -D AYU_COMMUNITY_BUILD=ON || exit /b 1'
           ) | Set-Content "$env:RUNNER_TEMP\configure.bat" -Encoding ascii
-          cmd /c "$env:RUNNER_TEMP\configure.bat"
-          exit $LASTEXITCODE
+          cmd /c "$env:RUNNER_TEMP\configure.bat > $env:RUNNER_TEMP\configure.log 2>&1"
+          if ($LASTEXITCODE -ne 0) {
+            python "$env:TBUILD\tdesktop\.github\scripts\annotate.py" tail "$env:RUNNER_TEMP\configure.log"
+            exit 1
+          }
 
       - name: Build community edition
         id: community
