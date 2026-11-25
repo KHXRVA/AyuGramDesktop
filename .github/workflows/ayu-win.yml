@@ -37,6 +37,10 @@ jobs:
           New-Item -ItemType Directory -Force "$env:USERPROFILE\TBuild\Libraries\win64", "$env:USERPROFILE\TBuild\ThirdParty" | Out-Null
           New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\TBuild" -Target "$env:USERPROFILE\TBuild" | Out-Null
           "TBUILD=$env:GITHUB_WORKSPACE\TBuild" >> $env:GITHUB_ENV
+          while ($zstd = Get-Command zstd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1) {
+            Remove-Item $zstd.Source -Force -ErrorAction Stop
+          }
+          exit 0
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -186,6 +190,10 @@ jobs:
           New-Item -ItemType Directory -Force "$env:USERPROFILE\TBuild\Libraries\win64", "$env:USERPROFILE\TBuild\ThirdParty" | Out-Null
           New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\TBuild" -Target "$env:USERPROFILE\TBuild" | Out-Null
           "TBUILD=$env:GITHUB_WORKSPACE\TBuild" >> $env:GITHUB_ENV
+          while ($zstd = Get-Command zstd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1) {
+            Remove-Item $zstd.Source -Force -ErrorAction Stop
+          }
+          exit 0
 
       - name: Checkout
         uses: actions/checkout@v7
