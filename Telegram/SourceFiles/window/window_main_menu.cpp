@@ -401,7 +401,10 @@ MainMenu::MainMenu(
 
 	_telegram->setMarkedText(tr::link(
 		AyuSettings::getInstance().effectiveAppNameFull(),
-		u"https://ayugram.one"_q));
+		u"https://ayugram.one"_q).append(AyuBuild::IsCommunity()
+			? TextWithEntities{ QString::fromUtf8(" by ") }.append(
+				tr::link(AyuBuild::Tag(), AyuBuild::AuthorLink()))
+			: TextWithEntities()));
 	_telegram->setLinksTrusted();
 	// The canary version is too long for the "Version {version}" form.
 	_version->setMarkedText(
@@ -413,10 +416,6 @@ MainMenu::MainMenu(
 					lt_version,
 					currentVersionShortText()),
 			1) // Link 1.
-		.append(AyuBuild::IsCommunity()
-			? TextWithEntities{ QString::fromUtf8(" by ") }.append(
-				tr::link(AyuBuild::Tag(), 3))
-			: TextWithEntities())
 		.append(QChar(' '))
 		.append(QChar(8211))
 		.append(QChar(' '))
@@ -429,11 +428,6 @@ MainMenu::MainMenu(
 		std::make_shared<LambdaClickHandler>([=] {
 			controller->show(Box(AboutBox, controller));
 		}));
-	if (AyuBuild::IsCommunity()) {
-		_version->setLink(
-			3,
-			std::make_shared<UrlClickHandler>(AyuBuild::AuthorLink()));
-	}
 
 	rpl::combine(
 		_toggleAccounts->rightSkipValue(),
